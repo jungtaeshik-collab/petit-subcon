@@ -55,7 +55,7 @@ export default function App() {
   // modal
   const [modal, setModal] = useState(null);
   const [modalVal, setModalVal] = useState("");
-  const modalRef = useRef(null);
+  const modalRef = useRef(null);   const refWorker = useRef(null);   const refQty    = useRef(null);   const refPrice  = useRef(null);
 
   // ── Firebase 실시간 리스닝 ─────────────────────────────
   useEffect(() => {
@@ -237,9 +237,9 @@ export default function App() {
         <p style={S.secTitle}>➕ 신규 작업 등록 <span style={S.todayChip}>지급일: {todayStr()}</span></p>
         <div style={S.formGrid}>
           <div><label style={S.lbl}>품목</label><input style={S.inp} type="text" placeholder="품목명" value={item} onChange={e=>setItem(e.target.value)} onKeyDown={e=>e.key==="Enter"&&refWorker.current?.focus()}/></div>
-          <div><label style={S.lbl}>작업자</label><input style={S.inp} type="text" placeholder="작업자명" value={worker} onChange={e=>setWorker(e.target.value)}/></div>
-          <div><label style={S.lbl}>수량</label><input style={S.inp} type="number" min="1" placeholder="수량" inputMode="numeric" value={qty} onChange={e=>setQty(e.target.value)}/></div>
-          <div><label style={S.lbl}>단가(원)</label><input style={S.inp} type="number" min="0" placeholder="단가" inputMode="numeric" value={price} onChange={e=>setPrice(e.target.value)}/></div>
+          <div><label style={S.lbl}>작업자</label><input style={S.inp} type="text" ref={refWorker} placeholder="작업자명" value={worker} onChange={e=>setWorker(e.target.value)} onKeyDown={e=>e.key==="Enter"&&refQty.current?.focus()}/></div>
+          <div><label style={S.lbl}>수량</label><input style={S.inp} type="number" min="1" ref={refQty} placeholder="수량" inputMode="numeric" value={qty} onChange={e=>setQty(e.target.value)} onKeyDown={e=>e.key==="Enter"&&refPrice.current?.focus()}/></div>
+          <div><label style={S.lbl}>단가(원)</label><input style={S.inp} type="number" min="0" ref={refPrice} placeholder="단가" inputMode="numeric" value={price} onChange={e=>setPrice(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addJob()}/></div>
           <div style={{display:"flex",alignItems:"flex-end"}}>
             <button style={S.btnAdd} onClick={addJob}>+ 등록</button>
           </div>
@@ -253,7 +253,7 @@ export default function App() {
         <div style={S.srchGrid}>
           <div><label style={S.lbl}>시작일</label><input style={S.inp} type="date" value={srchFrom} onChange={e=>setSrchFrom(e.target.value)}/></div>
           <div><label style={S.lbl}>종료일</label><input style={S.inp} type="date" value={srchTo} onChange={e=>setSrchTo(e.target.value)}/></div>
-          <div><label style={S.lbl}>작업자(비우면 전체)</label><input style={S.inp} type="text" placeholder="이름" value={srchWorker} onChange={e=>setSrchWorker(e.target.value)}/></div>
+          <div><label style={S.lbl}>작업자(비우면 전체)</label><input style={S.inp} type="text" placeholder="이름" value={srchWorker} onChange={e=>setSrchWorker(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doSearch()}/></div>
           <div style={{display:"flex",alignItems:"flex-end"}}>
             <button style={S.btnSrch} onClick={doSearch}>📊 검색</button>
           </div>
