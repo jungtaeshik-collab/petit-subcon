@@ -236,7 +236,7 @@ export default function App() {
       <div style={S.card}>
         <p style={S.secTitle}>➕ 신규 작업 등록 <span style={S.todayChip}>지급일: {todayStr()}</span></p>
         <div style={S.formGrid}>
-          <div><label style={S.lbl}>품목</label><input style={S.inp} type="text" placeholder="품목명" value={item} onChange={e=>setItem(e.target.value)}/></div>
+          <div><label style={S.lbl}>품목</label><input style={S.inp} type="text" placeholder="품목명" value={item} onChange={e=>setItem(e.target.value)} onKeyDown={e=>e.key==="Enter"&&refWorker.current?.focus()}/></div>
           <div><label style={S.lbl}>작업자</label><input style={S.inp} type="text" placeholder="작업자명" value={worker} onChange={e=>setWorker(e.target.value)}/></div>
           <div><label style={S.lbl}>수량</label><input style={S.inp} type="number" min="1" placeholder="수량" inputMode="numeric" value={qty} onChange={e=>setQty(e.target.value)}/></div>
           <div><label style={S.lbl}>단가(원)</label><input style={S.inp} type="number" min="0" placeholder="단가" inputMode="numeric" value={price} onChange={e=>setPrice(e.target.value)}/></div>
@@ -390,7 +390,7 @@ export default function App() {
 // ── 스타일 상수 ────────────────────────────────────────────
 const S = {
   wrap:        { maxWidth:1080, margin:"0 auto", padding:"16px 12px", fontFamily:"-apple-system,'Malgun Gothic',sans-serif", color:"#1a1a1a", minHeight:"100vh", background:"#f5f4f0" },
-  loginOverlay:{ position:"fixed", inset:0, background:"#f5f4f0", zIndex:100, display:"flex", alignItems:"center", justifyContent:"center" },
+  loginOverlay:{ position:"fixed", inset:0, background:"#f5f4f0", zIndex:100, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 16px" },
   loginBox:    { background:"#fff", border:"0.5px solid #e0e0dc", borderRadius:16, padding:"32px 28px", width:"min(340px,92vw)" },
   loginLogo:   { display:"block", margin:"0 auto 20px", height:100, objectFit:"contain" },
   loginTitle:  { fontSize:16, fontWeight:600, color:"#888", textAlign:"center", marginBottom:18 },
