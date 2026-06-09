@@ -37,6 +37,7 @@ export default function App() {
   const [jobs, setJobs] = useState([]);
   const [syncMsg, setSyncMsg] = useState("");
   const [tab, setTab] = useState("all");
+  const [payTab, setPayTab] = useState("all"); // all | unpaid | paid
 
   // form
   const [item, setItem] = useState("");
@@ -55,7 +56,14 @@ export default function App() {
   // modal
   const [modal, setModal] = useState(null);
   const [modalVal, setModalVal] = useState("");
-  const modalRef = useRef(null);   const refWorker = useRef(null);   const refQty    = useRef(null);   const refPrice  = useRef(null);
+  const modalRef = useRef(null);
+  const refItem   = useRef(null);
+  const refWorker = useRef(null);
+  const refQty    = useRef(null);
+  const refPrice  = useRef(null);
+  const refSrchFrom   = useRef(null);
+  const refSrchTo     = useRef(null);
+  const refSrchWorker = useRef(null);
 
   // ── Firebase 실시간 리스닝 ─────────────────────────────
   useEffect(() => {
@@ -95,6 +103,7 @@ export default function App() {
       item: item.trim(), worker: worker.trim(),
       qty: q, price: p,
       date: todayStr(), status: "pending", doneDate: null,
+      paid: false, paidDate: null,
       createdAt: Date.now()
     });
     setItem(""); setWorker(""); setQty(""); setPrice("");
@@ -107,6 +116,16 @@ export default function App() {
     await update(ref(db, "jobs/" + j.fbKey), {
       status: s,
       doneDate: s === "done" ? todayStr() : null
+    });
+  };
+
+  // ── 정산 확인 토글 (마스터) ──────────────────────────
+  const togglePaid = async (j) => {
+    if (role !== "master") return;
+    const newPaid = !j.paid;
+    await update(ref(db, "jobs/" + j.fbKey), {
+      paid: newPaid,
+      paidDate: newPaid ? todayStr() : null
     });
   };
 
@@ -145,11 +164,24 @@ export default function App() {
     if (!inRange.length) { alert("해당 기간에 작업 내역이 없습니다."); return; }
     const map = {};
     inRange.forEach(j => {
-      if (!map[j.worker]) map[j.worker] = { cnt:0, qty:0, priceSum:0, amount:0 };
+      if (!map[j.worker]) map[j.worker] = {
+        cnt:0, qty:0, amount:0,
+        unpaidCnt:0, unpaidQty:0, unpaidAmount:0,
+        paidCnt:0, paidQty:0, paidAmount:0
+      };
+      const q = Number(j.qty), p = Number(j.price);
       map[j.worker].cnt++;
-      map[j.worker].qty += Number(j.qty);
-      map[j.worker].priceSum += Number(j.price);
-      map[j.worker].amount += Number(j.qty) * Number(j.price);
+      map[j.worker].qty += q;
+      map[j.worker].amount += q * p;
+      if (!j.paid) {
+        map[j.worker].unpaidCnt++;
+        map[j.worker].unpaidQty += q;
+        map[j.worker].unpaidAmount += q * p;
+      } else {
+        map[j.worker].paidCnt++;
+        map[j.worker].paidQty += q;
+        map[j.worker].paidAmount += q * p;
+      }
     });
     setReport({ from: srchFrom.replaceAll("-","."), to: srchTo.replaceAll("-","."), total: inRange.length, map });
   };
@@ -158,7 +190,10 @@ export default function App() {
   const pending = jobs.filter(j => j.status === "pending");
   const partial = jobs.filter(j => j.status === "partial");
   const done    = jobs.filter(j => j.status === "done");
-  const filtered = tab==="pending"?pending : tab==="partial"?partial : tab==="done"?done : jobs;
+  const unpaid  = jobs.filter(j => !j.paid);
+  const paid    = jobs.filter(j => j.paid);
+  const byStatus = tab==="pending"?pending : tab==="partial"?partial : tab==="done"?done : jobs;
+  const filtered = payTab==="unpaid" ? byStatus.filter(j=>!j.paid) : payTab==="paid" ? byStatus.filter(j=>j.paid) : byStatus;
 
   const rowCls = j => j.status==="done"?"row-d":j.status==="partial"?"row-pt":"row-p";
   const txCls  = j => j.status==="done"?"tx-d":j.status==="partial"?"tx-pt":"tx-n";
@@ -194,10 +229,10 @@ export default function App() {
         <img src={LOGO} alt="Petit" style={S.loginLogo}/>
         <h2 style={S.loginTitle}>하청 작업 관리</h2>
         <label style={S.lbl}>비밀번호</label>
-        <input style={{...S.pwInp, marginBottom:16}} type="password" placeholder="비밀번호 입력"
+        <input style={S.pwInp} type="password" placeholder="비밀번호 입력"
           value={pw} onChange={e=>{setPw(e.target.value);setPwErr(false);}}
           onKeyDown={e=>e.key==="Enter"&&doLogin()}/>
-        <button style={{...S.loginBtn, marginTop:4}} onClick={doLogin}>로그인</button>
+        <button style={S.loginBtn} onClick={doLogin}>로그인</button>
         {pwErr && <p style={S.loginErr}>비밀번호가 올바르지 않습니다.</p>}
       </div>
     </div>
@@ -229,6 +264,8 @@ export default function App() {
         <span style={S.badgeYellow}>일부완료 {partial.length}건</span>
         <span style={S.badgeGreen}>완료 {done.length}건</span>
         <span style={S.badgeBlue}>🔴 실시간 공유</span>
+        <span style={S.badgeUnpaid}>💰 미확인 {unpaid.length}건</span>
+        <span style={S.badgePaid}>✅ 확인 {paid.length}건</span>
       </div>
       {syncMsg && <p style={S.syncBar}>{syncMsg}</p>}
 
@@ -236,10 +273,10 @@ export default function App() {
       <div style={S.card}>
         <p style={S.secTitle}>➕ 신규 작업 등록 <span style={S.todayChip}>지급일: {todayStr()}</span></p>
         <div style={S.formGrid}>
-          <div><label style={S.lbl}>품목</label><input style={S.inp} type="text" placeholder="품목명" value={item} onChange={e=>setItem(e.target.value)} onKeyDown={e=>e.key==="Enter"&&refWorker.current?.focus()}/></div>
-          <div><label style={S.lbl}>작업자</label><input style={S.inp} type="text" ref={refWorker} placeholder="작업자명" value={worker} onChange={e=>setWorker(e.target.value)} onKeyDown={e=>e.key==="Enter"&&refQty.current?.focus()}/></div>
-          <div><label style={S.lbl}>수량</label><input style={S.inp} type="number" min="1" ref={refQty} placeholder="수량" inputMode="numeric" value={qty} onChange={e=>setQty(e.target.value)} onKeyDown={e=>e.key==="Enter"&&refPrice.current?.focus()}/></div>
-          <div><label style={S.lbl}>단가(원)</label><input style={S.inp} type="number" min="0" ref={refPrice} placeholder="단가" inputMode="numeric" value={price} onChange={e=>setPrice(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addJob()}/></div>
+          <div><label style={S.lbl}>품목</label><input ref={refItem} style={S.inp} type="text" placeholder="품목명" value={item} onChange={e=>setItem(e.target.value)} onKeyDown={e=>e.key==="Enter"&&refWorker.current?.focus()}/></div>
+          <div><label style={S.lbl}>작업자</label><input ref={refWorker} style={S.inp} type="text" placeholder="작업자명" value={worker} onChange={e=>setWorker(e.target.value)} onKeyDown={e=>e.key==="Enter"&&refQty.current?.focus()}/></div>
+          <div><label style={S.lbl}>수량</label><input ref={refQty} style={S.inp} type="number" min="1" placeholder="수량" inputMode="numeric" value={qty} onChange={e=>setQty(e.target.value)} onKeyDown={e=>e.key==="Enter"&&refPrice.current?.focus()}/></div>
+          <div><label style={S.lbl}>단가(원)</label><input ref={refPrice} style={S.inp} type="number" min="0" placeholder="단가" inputMode="numeric" value={price} onChange={e=>setPrice(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addJob()}/></div>
           <div style={{display:"flex",alignItems:"flex-end"}}>
             <button style={S.btnAdd} onClick={addJob}>+ 등록</button>
           </div>
@@ -251,9 +288,9 @@ export default function App() {
       <div style={S.card}>
         <p style={S.secTitle}>🔍 기간별 작업자 조회</p>
         <div style={S.srchGrid}>
-          <div><label style={S.lbl}>시작일</label><input style={S.inp} type="date" value={srchFrom} onChange={e=>setSrchFrom(e.target.value)}/></div>
-          <div><label style={S.lbl}>종료일</label><input style={S.inp} type="date" value={srchTo} onChange={e=>setSrchTo(e.target.value)}/></div>
-          <div><label style={S.lbl}>작업자(비우면 전체)</label><input style={S.inp} type="text" placeholder="이름" value={srchWorker} onChange={e=>setSrchWorker(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doSearch()}/></div>
+          <div><label style={S.lbl}>시작일</label><input ref={refSrchFrom} style={S.inp} type="date" value={srchFrom} onChange={e=>setSrchFrom(e.target.value)} onKeyDown={e=>e.key==="Enter"&&refSrchTo.current?.focus()}/></div>
+          <div><label style={S.lbl}>종료일</label><input ref={refSrchTo} style={S.inp} type="date" value={srchTo} onChange={e=>setSrchTo(e.target.value)} onKeyDown={e=>e.key==="Enter"&&refSrchWorker.current?.focus()}/></div>
+          <div><label style={S.lbl}>작업자(비우면 전체)</label><input ref={refSrchWorker} style={S.inp} type="text" placeholder="이름" value={srchWorker} onChange={e=>setSrchWorker(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doSearch()}/></div>
           <div style={{display:"flex",alignItems:"flex-end"}}>
             <button style={S.btnSrch} onClick={doSearch}>📊 검색</button>
           </div>
@@ -268,28 +305,42 @@ export default function App() {
             <button style={S.btnClose} onClick={()=>setReport(null)}>✕ 닫기</button>
           </div>
           <div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:380}}>
-              <thead><tr style={{background:"#f8f7f3"}}>
-                <th style={S.rth}>작업자</th><th style={{...S.rth,textAlign:"right"}}>건수</th>
-                <th style={{...S.rth,textAlign:"right"}}>총수량</th><th style={{...S.rth,textAlign:"right"}}>단가합계</th>
-                <th style={{...S.rth,textAlign:"right"}}>총금액</th>
-              </tr></thead>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,minWidth:560}}>
+              <thead>
+                <tr style={{background:"#f8f7f3"}}>
+                  <th style={S.rth} rowSpan={2}>작업자</th>
+                  <th style={{...S.rth,textAlign:"center",borderBottom:"0.5px solid #e0e0dc"}} colSpan={3}>❌ 미확인</th>
+                  <th style={{...S.rth,textAlign:"center",borderBottom:"0.5px solid #e0e0dc",borderLeft:"1px solid #e0e0dc"}} colSpan={3}>✅ 확인</th>
+                </tr>
+                <tr style={{background:"#f8f7f3"}}>
+                  <th style={{...S.rth,textAlign:"right"}}>건수</th>
+                  <th style={{...S.rth,textAlign:"right"}}>수량</th>
+                  <th style={{...S.rth,textAlign:"right"}}>금액</th>
+                  <th style={{...S.rth,textAlign:"right",borderLeft:"1px solid #e0e0dc"}}>건수</th>
+                  <th style={{...S.rth,textAlign:"right"}}>수량</th>
+                  <th style={{...S.rth,textAlign:"right"}}>금액</th>
+                </tr>
+              </thead>
               <tbody>
                 {reportRows.map(([w,v])=>(
                   <tr key={w} style={{borderBottom:"0.5px solid #ebebeb"}}>
                     <td style={{padding:"8px 12px",fontWeight:500}}>{w}</td>
-                    <td style={{padding:"8px 12px",textAlign:"right"}}>{v.cnt}건</td>
-                    <td style={{padding:"8px 12px",textAlign:"right"}}>{fmt(v.qty)}</td>
-                    <td style={{padding:"8px 12px",textAlign:"right"}}>{fmt(v.priceSum)}원</td>
-                    <td style={{padding:"8px 12px",textAlign:"right",fontWeight:600}}>{fmt(v.amount)}원</td>
+                    <td style={{padding:"8px 12px",textAlign:"right",color:"#A32D2D"}}>{v.unpaidCnt}건</td>
+                    <td style={{padding:"8px 12px",textAlign:"right",color:"#A32D2D"}}>{fmt(v.unpaidQty)}</td>
+                    <td style={{padding:"8px 12px",textAlign:"right",color:"#A32D2D",fontWeight:600}}>{fmt(v.unpaidAmount)}원</td>
+                    <td style={{padding:"8px 12px",textAlign:"right",color:"#1a56db",borderLeft:"1px solid #ebebeb"}}>{v.paidCnt}건</td>
+                    <td style={{padding:"8px 12px",textAlign:"right",color:"#1a56db"}}>{fmt(v.paidQty)}</td>
+                    <td style={{padding:"8px 12px",textAlign:"right",color:"#1a56db",fontWeight:600}}>{fmt(v.paidAmount)}원</td>
                   </tr>
                 ))}
                 <tr style={{background:"#f3fae8",fontWeight:600}}>
                   <td style={{padding:"8px 12px"}}>합계</td>
-                  <td style={{padding:"8px 12px",textAlign:"right"}}>{reportRows.reduce((s,[,v])=>s+v.cnt,0)}건</td>
-                  <td style={{padding:"8px 12px",textAlign:"right"}}>{fmt(reportRows.reduce((s,[,v])=>s+v.qty,0))}</td>
-                  <td style={{padding:"8px 12px",textAlign:"right"}}>{fmt(reportRows.reduce((s,[,v])=>s+v.priceSum,0))}원</td>
-                  <td style={{padding:"8px 12px",textAlign:"right"}}>{fmt(reportRows.reduce((s,[,v])=>s+v.amount,0))}원</td>
+                  <td style={{padding:"8px 12px",textAlign:"right",color:"#A32D2D"}}>{reportRows.reduce((s,[,v])=>s+v.unpaidCnt,0)}건</td>
+                  <td style={{padding:"8px 12px",textAlign:"right",color:"#A32D2D"}}>{fmt(reportRows.reduce((s,[,v])=>s+v.unpaidQty,0))}</td>
+                  <td style={{padding:"8px 12px",textAlign:"right",color:"#A32D2D"}}>{fmt(reportRows.reduce((s,[,v])=>s+v.unpaidAmount,0))}원</td>
+                  <td style={{padding:"8px 12px",textAlign:"right",color:"#1a56db",borderLeft:"1px solid #e0e0dc"}}>{reportRows.reduce((s,[,v])=>s+v.paidCnt,0)}건</td>
+                  <td style={{padding:"8px 12px",textAlign:"right",color:"#1a56db"}}>{fmt(reportRows.reduce((s,[,v])=>s+v.paidQty,0))}</td>
+                  <td style={{padding:"8px 12px",textAlign:"right",color:"#1a56db"}}>{fmt(reportRows.reduce((s,[,v])=>s+v.paidAmount,0))}원</td>
                 </tr>
               </tbody>
             </table>
@@ -302,6 +353,15 @@ export default function App() {
         {[["all","전체"],["pending","미완료"],["partial","일부완료"],["done","완료"]].map(([k,l])=>(
           <button key={k} onClick={()=>setTab(k)}
             style={tab===k ? S.tabOn : S.tabOff}>{l}</button>
+        ))}
+      </div>
+
+      {/* 정산 탭 */}
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12,alignItems:"center"}}>
+        <span style={{fontSize:12,color:"#888",marginRight:4}}>정산:</span>
+        {[["all","전체"],["unpaid","미확인"],["paid","확인"]].map(([k,l])=>(
+          <button key={k} onClick={()=>setPayTab(k)}
+            style={payTab===k ? S.tabOn : S.tabOff}>{l}</button>
         ))}
       </div>
 
@@ -321,6 +381,7 @@ export default function App() {
               <th style={{...S.th,width:88}}>완료일</th>
               <th style={{...S.th,width:68,textAlign:"center"}}>상태</th>
               <th style={{...S.th,width:108,textAlign:"center"}}>처리</th>
+              <th style={{...S.th,width:80,textAlign:"center"}}>정산</th>
               <th style={{...S.th,width:42,textAlign:"center"}}>삭제</th>
             </tr>
           </thead>
@@ -347,6 +408,23 @@ export default function App() {
                 <td style={{padding:"9px 12px",fontSize:12}}>{j.doneDate?<span style={{color:"#3B6D11"}}>{j.doneDate}</span>:<span style={{color:"#bbb"}}>—</span>}</td>
                 <td style={{padding:"9px 12px",textAlign:"center"}}><Pill j={j}/></td>
                 <td style={{padding:"9px 12px",textAlign:"center"}}><ActBtns j={j}/></td>
+                <td style={{padding:"9px 12px",textAlign:"center"}}>
+                  {role==="master"
+                    ? <button onClick={()=>togglePaid(j)} style={{
+                        fontSize:11,padding:"4px 8px",borderRadius:7,cursor:"pointer",
+                        border:"0.5px solid",whiteSpace:"nowrap",
+                        background:"transparent",
+                        color: j.paid?"#1a56db":"#A32D2D",
+                        borderColor: j.paid?"#1a56db":"#A32D2D"
+                      }}>
+                        {j.paid?"✅ 확인":"❌ 미확인"}
+                      </button>
+                    : <span style={{
+                        fontSize:11,padding:"3px 8px",borderRadius:20,fontWeight:500,
+                        background: j.paid?"#E8F0FE":"#FCEBEB",
+                        color: j.paid?"#1a56db":"#A32D2D"
+                      }}>{j.paid?"확인":"미확인"}</span>}
+                </td>
                 <td style={{padding:"9px 12px",textAlign:"center"}}>
                   {role==="master"
                     ? <button onClick={()=>deleteJob(j)} style={{background:"none",border:"none",cursor:"pointer",color:"#bbb",fontSize:18,padding:4}}>🗑</button>
@@ -391,7 +469,7 @@ export default function App() {
 const S = {
   wrap:        { maxWidth:1080, margin:"0 auto", padding:"16px 12px", fontFamily:"-apple-system,'Malgun Gothic',sans-serif", color:"#1a1a1a", minHeight:"100vh", background:"#f5f4f0" },
   loginOverlay:{ position:"fixed", inset:0, background:"#f5f4f0", zIndex:100, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 16px" },
-  loginBox:    { background:"#fff", border:"0.5px solid #e0e0dc", borderRadius:16, padding:"32px 28px", width:"min(340px,92vw)" },
+  loginBox:    { background:"#fff", border:"0.5px solid #e0e0dc", borderRadius:16, padding:"32px 28px", width:"min(340px,92vw)", margin:"0 auto" },
   loginLogo:   { display:"block", margin:"0 auto 20px", height:100, objectFit:"contain" },
   loginTitle:  { fontSize:16, fontWeight:600, color:"#888", textAlign:"center", marginBottom:18 },
   loginBtn:    { width:"100%", height:42, border:"none", borderRadius:8, background:"#1a1a1a", color:"#fff", fontSize:15, cursor:"pointer", fontWeight:500 },
@@ -410,6 +488,8 @@ const S = {
   badgeYellow: { fontSize:11, padding:"4px 10px", borderRadius:8, fontWeight:500, background:"#FFFBEA", color:"#92600A" },
   badgeGreen:  { fontSize:11, padding:"4px 10px", borderRadius:8, fontWeight:500, background:"#EAF3DE", color:"#3B6D11" },
   badgeBlue:   { fontSize:11, padding:"4px 10px", borderRadius:8, fontWeight:500, background:"#E8F0FE", color:"#1a56db" },
+  badgeUnpaid: { fontSize:11, padding:"4px 10px", borderRadius:8, fontWeight:500, background:"#FCEBEB", color:"#A32D2D" },
+  badgePaid:   { fontSize:11, padding:"4px 10px", borderRadius:8, fontWeight:500, background:"#E8F0FE", color:"#1a56db" },
   syncBar:     { fontSize:11, color:"#1a56db", textAlign:"right", marginBottom:6, minHeight:16 },
   card:        { background:"#fff", border:"0.5px solid #e0e0dc", borderRadius:12, padding:16, marginBottom:12 },
   secTitle:    { fontSize:13, fontWeight:500, color:"#888", marginBottom:12, display:"flex", alignItems:"center", gap:6 },
