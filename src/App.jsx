@@ -194,10 +194,10 @@ export default function App() {
         <img src={LOGO} alt="Petit" style={S.loginLogo}/>
         <h2 style={S.loginTitle}>하청 작업 관리</h2>
         <label style={S.lbl}>비밀번호</label>
-        <input style={S.pwInp} type="password" placeholder="비밀번호 입력"
+        <input style={{...S.pwInp, marginBottom:16}} type="password" placeholder="비밀번호 입력"
           value={pw} onChange={e=>{setPw(e.target.value);setPwErr(false);}}
           onKeyDown={e=>e.key==="Enter"&&doLogin()}/>
-        <button style={S.loginBtn} onClick={doLogin}>로그인</button>
+        <button style={{...S.loginBtn, marginTop:4}} onClick={doLogin}>로그인</button>
         {pwErr && <p style={S.loginErr}>비밀번호가 올바르지 않습니다.</p>}
       </div>
     </div>
