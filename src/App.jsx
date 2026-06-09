@@ -129,10 +129,17 @@ export default function App() {
   const openModal = (j, field) => {
     if (!canEdit(j)) return;
     setModal({ fbKey: j.fbKey, field, sub: j.item + " / " + j.worker });
-    setModalVal(String(field === "qty" ? j.qty : j.price));
+    const initVal = field === "qty" ? j.qty : field === "price" ? j.price : field === "item" ? j.item : j.worker;
+    setModalVal(String(initVal ?? ""));
     setTimeout(() => modalRef.current?.focus(), 80);
   };
   const saveModal = async () => {
+    if (modal.field === "item" || modal.field === "worker") {
+      if (!modalVal.trim()) return;
+      await update(ref(db, "jobs/" + modal.fbKey), { [modal.field]: modalVal.trim() });
+      setModal(null);
+      return;
+    }
     const v = parseInt(modalVal);
     if (isNaN(v) || (modal.field === "qty" && v < 1) || v < 0) return;
     await update(ref(db, "jobs/" + modal.fbKey), { [modal.field]: v });
@@ -214,7 +221,7 @@ export default function App() {
         <img src={LOGO} alt="Petit" style={S.loginLogo}/>
         <h2 style={S.loginTitle}>하청 작업 관리</h2>
         <label style={S.lbl}>비밀번호</label>
-        <input style={S.pwInp} type="password" placeholder="비밀번호 입력"
+        <input style={{width:"100%",height:52,border:"1px solid #ccc",borderRadius:10,padding:"0 16px",fontSize:18,fontFamily:"inherit",outline:"none",background:"#fafaf8",marginBottom:20,boxSizing:"border-box"}} type="password" placeholder="비밀번호 입력"
           value={pw} onChange={e=>{setPw(e.target.value);setPwErr(false);}}
           onKeyDown={e=>e.key==="Enter"&&doLogin()}/>
         <button style={S.loginBtn} onClick={doLogin}>로그인</button>
@@ -366,8 +373,12 @@ export default function App() {
             ) : filtered.map((j,idx)=>(
               <tr key={j.fbKey} style={{background: j.status==="done"?"#F3FAE8":j.status==="partial"?"#FFFDF0":"#FEF6F6", borderBottom:"0.5px solid #ebebeb"}}>
                 <td style={{padding:"9px 12px",color:"#aaa"}}>{idx+1}</td>
-                <td style={{padding:"9px 12px",fontWeight:500,color:j.status==="done"?"#A32D2D":j.status==="partial"?"#92600A":"#1a1a1a",textDecoration:j.status==="done"?"line-through":"none",whiteSpace:"normal",minWidth:90}}>{j.item}</td>
-                <td style={{padding:"9px 12px",color:j.status==="done"?"#A32D2D":j.status==="partial"?"#92600A":"#1a1a1a",textDecoration:j.status==="done"?"line-through":"none",whiteSpace:"normal",minWidth:75}}>{j.worker}</td>
+                <td style={{padding:"9px 12px",fontWeight:500,color:j.status==="done"?"#A32D2D":j.status==="partial"?"#92600A":"#1a1a1a",textDecoration:j.status==="done"?"line-through":"none",whiteSpace:"normal",minWidth:90}}>
+                  {canEdit(j) ? <span style={S.editable} onClick={()=>openModal(j,"item")}>{j.item}</span> : j.item}
+                </td>
+                <td style={{padding:"9px 12px",color:j.status==="done"?"#A32D2D":j.status==="partial"?"#92600A":"#1a1a1a",textDecoration:j.status==="done"?"line-through":"none",whiteSpace:"normal",minWidth:75}}>
+                  {canEdit(j) ? <span style={S.editable} onClick={()=>openModal(j,"worker")}>{j.worker}</span> : j.worker}
+                </td>
                 <td style={{padding:"9px 12px",textAlign:"center",color:j.status==="done"?"#A32D2D":j.status==="partial"?"#92600A":"#1a1a1a",textDecoration:j.status==="done"?"line-through":"none"}}>
                   {canEdit(j) ? <span style={S.editable} onClick={()=>openModal(j,"qty")}>{j.qty}</span> : j.qty}
                 </td>
@@ -403,10 +414,16 @@ export default function App() {
       {modal && (
         <div style={S.modalBg} onClick={e=>e.target===e.currentTarget&&setModal(null)}>
           <div style={S.modalBox}>
-            <h3 style={{fontSize:15,fontWeight:600,marginBottom:4}}>{modal.field==="qty"?"수량 수정":"단가 수정"}</h3>
+            <h3 style={{fontSize:15,fontWeight:600,marginBottom:4}}>
+              {modal.field==="qty"?"수량 수정":modal.field==="price"?"단가 수정":modal.field==="item"?"품목 수정":"작업자 수정"}
+            </h3>
             <p style={{fontSize:12,color:"#888",marginBottom:16}}>{modal.sub}</p>
-            <label style={S.lbl}>{modal.field==="qty"?"수량":"단가 (원)"}</label>
-            <input ref={modalRef} style={S.modalInp} type="number"
+            <label style={S.lbl}>
+              {modal.field==="qty"?"수량":modal.field==="price"?"단가 (원)":modal.field==="item"?"품목명":"작업자명"}
+            </label>
+            <input ref={modalRef}
+              style={{...S.modalInp, textAlign:(modal.field==="item"||modal.field==="worker")?"left":"right"}}
+              type={modal.field==="item"||modal.field==="worker"?"text":"number"}
               min={modal.field==="qty"?1:0} value={modalVal}
               onChange={e=>setModalVal(e.target.value)}
               onKeyDown={e=>{if(e.key==="Enter")saveModal();if(e.key==="Escape")setModal(null);}}/>
