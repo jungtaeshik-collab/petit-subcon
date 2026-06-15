@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import * as XLSX from "xlsx";
 import { initializeApp } from "firebase/app";
 import { getDatabase, ref, onValue, push, remove, update } from "firebase/database";
 
@@ -65,6 +66,8 @@ export default function App() {
   const [modal, setModal] = useState(null);
   const [modalVal, setModalVal] = useState("");
   const modalRef = useRef(null);
+  const fileRef  = useRef(null);
+  const [uploadMsg, setUploadMsg] = useState("");
   const refItem   = useRef(null);
   const refWorker = useRef(null);
   const refQty    = useRef(null);
@@ -117,6 +120,93 @@ export default function App() {
     });
     setItem(""); setWorker(""); setQty(""); setPrice("");
     setSyncMsg("💾 저장됨"); setTimeout(() => setSyncMsg(""), 2000);
+  };
+
+  // ── 엑셀 업로드 ──────────────────────────────────────
+  const handleExcel = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    fileRef.current.value = "";
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const wb = XLSX.read(evt.target.result, { type: "array", cellDates: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+        // 헤더 행 찾기 (일자/품목/작업자/수량/단가 포함된 행)
+        let dataStart = 0;
+        for (let i = 0; i < Math.min(rows.length, 5); i++) {
+          const row = rows[i].map(c => String(c).replace(/\s/g,"").toLowerCase());
+          if (row.some(c => c.includes("품목") || c.includes("작업자") || c.includes("수량"))) {
+            dataStart = i + 1;
+            break;
+          }
+        }
+
+        // 컬럼 인덱스 자동 감지
+        const headerRow = rows[dataStart - 1] || [];
+        const colIdx = { date:-1, item:-1, worker:-1, qty:-1, price:-1 };
+        headerRow.forEach((h, i) => {
+          const s = String(h).replace(/\s/g,"").toLowerCase();
+          if (s.includes("일자") || s.includes("날짜") || s.includes("date")) colIdx.date = i;
+          else if (s.includes("품목") || s.includes("item"))                   colIdx.item = i;
+          else if (s.includes("작업자") || s.includes("worker"))               colIdx.worker = i;
+          else if (s.includes("수량") || s.includes("qty"))                    colIdx.qty = i;
+          else if (s.includes("단가") || s.includes("price"))                  colIdx.price = i;
+        });
+
+        // 헤더 못 찾으면 순서대로 (일자,품목,작업자,수량,단가)
+        if (colIdx.item === -1) { colIdx.date=0; colIdx.item=1; colIdx.worker=2; colIdx.qty=3; colIdx.price=4; dataStart=1; }
+
+        const dataRows = rows.slice(dataStart).filter(r => r.some(c => c !== ""));
+        if (!dataRows.length) { setUploadMsg("❌ 데이터가 없습니다."); return; }
+
+        let successCnt = 0;
+        const jobsRef = ref(db, "jobs");
+
+        for (const row of dataRows) {
+          const rawDate = row[colIdx.date];
+          const itemVal = String(row[colIdx.item] || "").trim();
+          const workerVal = String(row[colIdx.worker] || "").trim();
+          const qtyVal = parseInt(row[colIdx.qty]) || 0;
+          const priceVal = parseInt(row[colIdx.price]) || 0;
+
+          if (!itemVal || !workerVal || qtyVal < 1) continue;
+
+          // 날짜 파싱
+          let dateStr = todayStr();
+          if (rawDate) {
+            if (rawDate instanceof Date) {
+              dateStr = rawDate.getFullYear()+"."+pad(rawDate.getMonth()+1)+"."+pad(rawDate.getDate());
+            } else {
+              const s = String(rawDate).replace(/[.\-/]/g, ".");
+              const parts = s.split(".");
+              if (parts.length >= 3) {
+                dateStr = parts[0]+"."+pad(parseInt(parts[1]))+"."+pad(parseInt(parts[2]));
+              }
+            }
+          }
+
+          await push(jobsRef, {
+            item: itemVal, worker: workerVal,
+            qty: qtyVal, price: priceVal,
+            date: dateStr, status: "pending", doneDate: null,
+            createdBy: userName,
+            createdAt: Date.now()
+          });
+          successCnt++;
+        }
+
+        setUploadMsg("✅ " + successCnt + "건 업로드 완료!");
+        setTimeout(() => setUploadMsg(""), 4000);
+      } catch(err) {
+        setUploadMsg("❌ 파일 읽기 오류: " + err.message);
+        setTimeout(() => setUploadMsg(""), 4000);
+      }
+    };
+    reader.readAsArrayBuffer(file);
   };
 
   // ── 상태 변경 (마스터) ────────────────────────────────
@@ -278,11 +368,17 @@ export default function App() {
           <div><label style={S.lbl}>작업자</label><input ref={refWorker} style={S.inp} type="text" placeholder="작업자명" value={worker} onChange={e=>setWorker(e.target.value)} onKeyDown={e=>e.key==="Enter"&&refQty.current?.focus()}/></div>
           <div><label style={S.lbl}>수량</label><input ref={refQty} style={S.inp} type="number" min="1" placeholder="수량" inputMode="numeric" value={qty} onChange={e=>setQty(e.target.value)} onKeyDown={e=>e.key==="Enter"&&refPrice.current?.focus()}/></div>
           <div><label style={S.lbl}>단가(원)</label><input ref={refPrice} style={S.inp} type="number" min="0" placeholder="단가" inputMode="numeric" value={price} onChange={e=>setPrice(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addJob()}/></div>
-          <div style={{display:"flex",alignItems:"flex-end"}}>
+          <div style={{display:"flex",alignItems:"flex-end",gap:8,gridColumn:"1/-1"}}>
             <button style={S.btnAdd} onClick={addJob}>+ 등록</button>
+            <button style={S.btnExcel} onClick={()=>fileRef.current.click()}>
+              📂 엑셀 업로드
+            </button>
+            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv"
+              style={{display:"none"}} onChange={handleExcel}/>
           </div>
         </div>
         {formErr && <p style={{color:"#A32D2D",fontSize:12,marginTop:8}}>품목, 작업자, 수량을 모두 입력해 주세요.</p>}
+        {uploadMsg && <p style={{fontSize:12,marginTop:8,color:uploadMsg.startsWith("✅")?"#3B6D11":"#A32D2D"}}>{uploadMsg}</p>}
       </div>
 
       {/* 검색 */}
@@ -489,6 +585,7 @@ const S = {
   srchGrid:    { display:"grid", gap:8, gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))" },
   btnAdd:      { height:40, padding:"0 18px", border:"none", borderRadius:8, background:"#1a1a1a", color:"#fff", fontSize:14, cursor:"pointer", whiteSpace:"nowrap", width:"100%" },
   btnSrch:     { height:40, padding:"0 18px", border:"none", borderRadius:8, background:"#2D6A4F", color:"#fff", fontSize:14, cursor:"pointer", whiteSpace:"nowrap", width:"100%" },
+  btnExcel:    { height:40, padding:"0 18px", border:"0.5px solid #2D6A4F", borderRadius:8, background:"transparent", color:"#2D6A4F", fontSize:14, cursor:"pointer", whiteSpace:"nowrap" },
   btnClose:    { fontSize:12, padding:"5px 12px", borderRadius:8, border:"0.5px solid #ccc", background:"transparent", color:"#888", cursor:"pointer" },
   tblWrap:     { background:"#fff", border:"0.5px solid #e0e0dc", borderRadius:12, overflowX:"auto", WebkitOverflowScrolling:"touch", marginBottom:12 },
   th:          { padding:"9px 12px", textAlign:"left", fontWeight:500, color:"#888", fontSize:11, whiteSpace:"nowrap" },
