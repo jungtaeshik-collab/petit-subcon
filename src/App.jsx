@@ -255,28 +255,29 @@ export default function App() {
     const inRange = jobs.filter(j => {
       const d = toDateObj(j.date);
       if (!d || d < from || d > to) return false;
-      return !wf || j.worker.toLowerCase().includes(wf);
+      return !wf || j.worker.trim().slice(0,3).toLowerCase().includes(wf);
     });
     if (!inRange.length) { alert("해당 기간에 작업 내역이 없습니다."); return; }
     const map = {};
     inRange.forEach(j => {
-      if (!map[j.worker]) map[j.worker] = {
+      const workerKey = j.worker.trim().slice(0, 3); // 앞 3글자로 그룹핑
+      if (!map[workerKey]) map[workerKey] = {
         totalCnt:0, totalQty:0, totalAmount:0,
         doneCnt:0,  doneQty:0,  doneAmount:0,
         etcCnt:0,   etcQty:0,   etcAmount:0
       };
       const q = Number(j.qty), p = Number(j.price);
-      map[j.worker].totalCnt++;
-      map[j.worker].totalQty += q;
-      map[j.worker].totalAmount += q * p;
+      map[workerKey].totalCnt++;
+      map[workerKey].totalQty += q;
+      map[workerKey].totalAmount += q * p;
       if (j.status === "done") {
-        map[j.worker].doneCnt++;
-        map[j.worker].doneQty += q;
-        map[j.worker].doneAmount += q * p;
+        map[workerKey].doneCnt++;
+        map[workerKey].doneQty += q;
+        map[workerKey].doneAmount += q * p;
       } else {
-        map[j.worker].etcCnt++;
-        map[j.worker].etcQty += q;
-        map[j.worker].etcAmount += q * p;
+        map[workerKey].etcCnt++;
+        map[workerKey].etcQty += q;
+        map[workerKey].etcAmount += q * p;
       }
     });
     setReport({ from: srchFrom.replaceAll("-","."), to: srchTo.replaceAll("-","."), total: inRange.length, map });
