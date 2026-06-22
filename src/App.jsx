@@ -33,6 +33,12 @@ function todayStr() {
   const yy = String(d.getFullYear()).slice(2);
   return yy + "." + pad(d.getMonth()+1) + "." + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
 }
+function nowStr() {
+  const d = new Date();
+  const yy = String(d.getFullYear()).slice(2);
+  return yy+"."+pad(d.getMonth()+1)+"."+pad(d.getDate())+" "+pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds());
+}
+
 function toDateObj(s) {
   if (!s) return null;
   // "25.06.01 14:30" 또는 "2025.06.01" 형태 모두 처리
@@ -73,6 +79,8 @@ export default function App() {
   const modalRef = useRef(null);
   const fileRef  = useRef(null);
   const [uploadMsg, setUploadMsg] = useState("");
+  const [showLog, setShowLog] = useState(false);
+  const [accessLogs, setAccessLogs] = useState([]);
   const refItem   = useRef(null);
   const refWorker = useRef(null);
   const refQty    = useRef(null);
@@ -81,9 +89,29 @@ export default function App() {
   const refSrchTo     = useRef(null);
   const refSrchWorker = useRef(null);
 
+  // ── 접속 이력 불러오기 (정태식만) ───────────────────────
+  const loadAccessLogs = async () => {
+    try {
+      const logRef = ref(db, "access_logs");
+      onValue(logRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          const arr = Object.entries(data)
+            .map(([k, v]) => ({ ...v, key: k }))
+            .sort((a, b) => b.ts - a.ts)
+            .slice(0, 100); // 최근 100건
+          setAccessLogs(arr);
+        } else {
+          setAccessLogs([]);
+        }
+      }, { onlyOnce: false });
+    } catch(e) {}
+  };
+
   // ── Firebase 실시간 리스닝 ─────────────────────────────
   useEffect(() => {
     if (!role) return;
+    if (userName === "정태식") loadAccessLogs();
     const jobsRef = ref(db, "jobs");
     const unsub = onValue(jobsRef, (snapshot) => {
       const data = snapshot.val();
@@ -102,12 +130,22 @@ export default function App() {
   }, [role]);
 
   // ── 로그인 ────────────────────────────────────────────
-  const doLogin = () => {
+  const doLogin = async () => {
     const user = USERS[pw.trim()];
     if (!user) { setPwErr(true); setPw(""); return; }
     setRole(user.role);
     setUserName(user.name);
     setPwErr(false); setPw("");
+    // 접속 이력 Firebase에 저장
+    try {
+      const logRef = ref(db, "access_logs");
+      await push(logRef, {
+        name: user.name,
+        role: user.role,
+        time: nowStr(),
+        ts: Date.now()
+      });
+    } catch(e) {}
   };
 
   // ── 등록 ─────────────────────────────────────────────
@@ -353,7 +391,13 @@ export default function App() {
           <span style={role==="master"?S.chipMaster:S.chipStaff}>
             {role==="master"?"👑 "+userName : "👤 "+userName}
           </span>
-          <button style={S.logoutBtn} onClick={()=>{setRole(null);setUserName("");setJobs([]);}}>로그아웃</button>
+          {userName === "정태식" && (
+            <button style={{...S.logoutBtn, color:"#1a56db", borderColor:"#1a56db"}}
+              onClick={()=>setShowLog(true)}>
+              👁 접속현황
+            </button>
+          )}
+          <button style={S.logoutBtn} onClick={()=>{setRole(null);setUserName("");setJobs([]);setShowLog(false);}}>로그아웃</button>
         </div>
       </div>
 
@@ -535,6 +579,47 @@ export default function App() {
         <span style={{color:"#6B4400",display:"flex",alignItems:"center",gap:4}}><span style={{width:0,height:0,borderLeft:"5px solid transparent",borderRight:"5px solid transparent",borderBottom:"9px solid #FAE588",display:"inline-block"}}/> 일부완료</span>
         <span style={{color:"#3B6D11",display:"flex",alignItems:"center",gap:4}}><span style={{width:9,height:9,borderRadius:"50%",background:"#C0DD97",display:"inline-block"}}/> 완료</span>
       </div>
+
+      {/* 접속 이력 모달 */}
+      {showLog && (
+        <div style={S.modalBg} onClick={e=>e.target===e.currentTarget&&setShowLog(false)}>
+          <div style={{...S.modalBox, width:"min(480px,94vw)", maxHeight:"80vh", display:"flex", flexDirection:"column"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <h3 style={{fontSize:15,fontWeight:600}}>👁 접속자 현황 이력</h3>
+              <button style={S.btnCancel} onClick={()=>setShowLog(false)}>✕ 닫기</button>
+            </div>
+            <div style={{overflowY:"auto",flex:1}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead>
+                  <tr style={{background:"#f8f7f3",position:"sticky",top:0}}>
+                    <th style={{padding:"8px 12px",textAlign:"left",fontWeight:500,color:"#888",fontSize:12}}>이름</th>
+                    <th style={{padding:"8px 12px",textAlign:"left",fontWeight:500,color:"#888",fontSize:12}}>권한</th>
+                    <th style={{padding:"8px 12px",textAlign:"left",fontWeight:500,color:"#888",fontSize:12}}>접속시각</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {accessLogs.length === 0
+                    ? <tr><td colSpan={3} style={{padding:24,textAlign:"center",color:"#aaa"}}>접속 이력이 없습니다.</td></tr>
+                    : accessLogs.map((log, i) => (
+                      <tr key={log.key||i} style={{borderBottom:"0.5px solid #ebebeb", background: i===0?"#F0F7FF":"transparent"}}>
+                        <td style={{padding:"8px 12px",fontWeight:500}}>{log.name}</td>
+                        <td style={{padding:"8px 12px"}}>
+                          <span style={{fontSize:11,padding:"2px 8px",borderRadius:20,fontWeight:500,
+                            background:log.role==="master"?"#1a1a1a":"#f0efeb",
+                            color:log.role==="master"?"#fff":"#555"}}>
+                            {log.role==="master"?"👑 마스터":"👤 일반"}
+                          </span>
+                        </td>
+                        <td style={{padding:"8px 12px",fontSize:12,color:"#666"}}>{log.time}</td>
+                      </tr>
+                    ))
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 편집 모달 */}
       {modal && (
