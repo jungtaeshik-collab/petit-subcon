@@ -30,12 +30,17 @@ const db = getDatabase(fbApp);
 function pad(n) { return String(n).padStart(2, "0"); }
 function todayStr() {
   const d = new Date();
-  return d.getFullYear() + "." + pad(d.getMonth()+1) + "." + pad(d.getDate());
+  const yy = String(d.getFullYear()).slice(2);
+  return yy + "." + pad(d.getMonth()+1) + "." + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
 }
 function toDateObj(s) {
   if (!s) return null;
-  const p = s.split(".");
-  return new Date(+p[0], +p[1]-1, +p[2]);
+  // "25.06.01 14:30" 또는 "2025.06.01" 형태 모두 처리
+  const dateOnly = s.split(" ")[0]; // 시간 제거
+  const p = dateOnly.split(".");
+  if (p.length < 3) return null;
+  const year = p[0].length === 2 ? 2000 + parseInt(p[0]) : parseInt(p[0]);
+  return new Date(year, parseInt(p[1])-1, parseInt(p[2]));
 }
 function fmt(n) { return Number(n).toLocaleString("ko-KR"); }
 
@@ -363,7 +368,7 @@ export default function App() {
 
       {/* 등록 폼 */}
       <div style={S.card}>
-        <p style={S.secTitle}>➕ 신규 작업 등록 <span style={S.todayChip}>지급일: {todayStr()}</span></p>
+        <p style={S.secTitle}>➕ 신규 작업 등록 <span style={S.todayChip}>등록시각: {todayStr()}</span></p>
         <div style={S.formGrid}>
           <div><label style={S.lbl}>품목</label><input ref={refItem} style={S.inp} type="text" placeholder="품목명" value={item} onChange={e=>setItem(e.target.value)} onKeyDown={e=>e.key==="Enter"&&refWorker.current?.focus()}/></div>
           <div><label style={S.lbl}>작업자</label><input ref={refWorker} style={S.inp} type="text" placeholder="작업자명" value={worker} onChange={e=>setWorker(e.target.value)} onKeyDown={e=>e.key==="Enter"&&refQty.current?.focus()}/></div>
@@ -466,7 +471,7 @@ export default function App() {
               <th style={{...S.th,width:52,textAlign:"center"}}>수량</th>
               <th style={{...S.th,width:76,textAlign:"right"}}>단가</th>
               <th style={{...S.th,width:84,textAlign:"right"}}>금액</th>
-              <th style={{...S.th,width:88}}>지급일</th>
+              <th style={{...S.th,width:96}}>지급일/시간</th>
               <th style={{...S.th,width:88}}>완료일</th>
               <th style={{...S.th,width:68,textAlign:"center"}}>상태</th>
               <th style={{...S.th,width:108,textAlign:"center"}}>처리</th>
@@ -497,7 +502,14 @@ export default function App() {
                 <td style={{padding:"9px 12px",textAlign:"right",fontSize:12}}>
                   {j.price ? <strong>{fmt(Number(j.qty)*Number(j.price))}원</strong> : <span style={{color:"#bbb"}}>—</span>}
                 </td>
-                <td style={{padding:"9px 12px",fontSize:12,color:j.status==="done"?"#A32D2D":j.status==="partial"?"#92600A":"#1a1a1a",textDecoration:j.status==="done"?"line-through":"none"}}>{j.date}</td>
+                <td style={{padding:"9px 12px",fontSize:12,color:j.status==="done"?"#A32D2D":j.status==="partial"?"#92600A":"#1a1a1a",textDecoration:j.status==="done"?"line-through":"none"}}>
+                  {(() => {
+                    const parts = (j.date||"").split(" ");
+                    return parts.length >= 2
+                      ? <><span>{parts[0]}</span><br/><span style={{color:"#888",fontSize:11}}>{parts[1]}</span></>
+                      : j.date;
+                  })()}
+                </td>
                 <td style={{padding:"9px 12px",fontSize:12}}>{j.doneDate?<span style={{color:"#3B6D11"}}>{j.doneDate}</span>:<span style={{color:"#bbb"}}>—</span>}</td>
                 <td style={{padding:"9px 12px",textAlign:"center"}}><Pill j={j}/></td>
                 <td style={{padding:"9px 12px",textAlign:"center"}}><ActBtns j={j}/></td>
