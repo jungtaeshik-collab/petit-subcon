@@ -80,7 +80,9 @@ export default function App() {
   const fileRef  = useRef(null);
   const [uploadMsg, setUploadMsg] = useState("");
   const [showLog, setShowLog] = useState(false);
+  const [logTab, setLogTab] = useState("activity"); // activity | access
   const [accessLogs, setAccessLogs] = useState([]);
+  const [activityLogs, setActivityLogs] = useState([]);
   const refItem   = useRef(null);
   const refWorker = useRef(null);
   const refQty    = useRef(null);
@@ -88,6 +90,20 @@ export default function App() {
   const refSrchFrom   = useRef(null);
   const refSrchTo     = useRef(null);
   const refSrchWorker = useRef(null);
+
+  // ── 활동 로그 저장 ────────────────────────────────────
+  const logActivity = async (action, detail) => {
+    try {
+      await push(ref(db, "activity_logs"), {
+        name: userName,
+        role: role,
+        action,
+        detail,
+        time: nowStr(),
+        ts: Date.now()
+      });
+    } catch(e) {}
+  };
 
   // ── 접속 이력 불러오기 (정태식만) ───────────────────────
   const loadAccessLogs = async () => {
@@ -99,11 +115,21 @@ export default function App() {
           const arr = Object.entries(data)
             .map(([k, v]) => ({ ...v, key: k }))
             .sort((a, b) => b.ts - a.ts)
-            .slice(0, 100); // 최근 100건
+            .slice(0, 100);
           setAccessLogs(arr);
-        } else {
-          setAccessLogs([]);
-        }
+        } else { setAccessLogs([]); }
+      }, { onlyOnce: false });
+
+      const actRef = ref(db, "activity_logs");
+      onValue(actRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          const arr = Object.entries(data)
+            .map(([k, v]) => ({ ...v, key: k }))
+            .sort((a, b) => b.ts - a.ts)
+            .slice(0, 200);
+          setActivityLogs(arr);
+        } else { setActivityLogs([]); }
       }, { onlyOnce: false });
     } catch(e) {}
   };
@@ -162,6 +188,7 @@ export default function App() {
       createdAt: Date.now()
     });
     setItem(""); setWorker(""); setQty(""); setPrice("");
+    await logActivity("등록", item.trim()+" / "+worker.trim()+" / 수량:"+q+(p?" / 단가:"+fmt(p):""));
     setSyncMsg("💾 저장됨"); setTimeout(() => setSyncMsg(""), 2000);
   };
 
@@ -242,6 +269,7 @@ export default function App() {
           successCnt++;
         }
 
+        await logActivity("엑셀업로드", successCnt+"건 업로드 ("+file.name+")");
         setUploadMsg("✅ " + successCnt + "건 업로드 완료!");
         setTimeout(() => setUploadMsg(""), 4000);
       } catch(err) {
@@ -259,12 +287,15 @@ export default function App() {
       status: s,
       doneDate: s === "done" ? todayStr() : null
     });
+    const label = s==="done"?"완료처리" : s==="partial"?"일부완료처리" : "미완료복귀";
+    await logActivity(label, j.item+" / "+j.worker);
   };
 
   // ── 삭제 (마스터) ─────────────────────────────────────
   const deleteJob = async (j) => {
     if (role !== "master") return;
     if (!confirm("삭제하시겠습니까?")) return;
+    await logActivity("삭제", j.item+" / "+j.worker+" / 수량:"+j.qty);
     await remove(ref(db, "jobs/" + j.fbKey));
   };
 
@@ -281,12 +312,14 @@ export default function App() {
     if (modal.field === "item" || modal.field === "worker") {
       if (!modalVal.trim()) return;
       await update(ref(db, "jobs/" + modal.fbKey), { [modal.field]: modalVal.trim() });
+      await logActivity("수정", modal.field==="item"?"품목→"+modalVal.trim():"작업자→"+modalVal.trim()+" ("+modal.sub+")");
       setModal(null);
       return;
     }
     const v = parseInt(modalVal);
     if (isNaN(v) || (modal.field === "qty" && v < 1) || v < 0) return;
     await update(ref(db, "jobs/" + modal.fbKey), { [modal.field]: v });
+    await logActivity("수정", (modal.field==="qty"?"수량":"단가")+"→"+fmt(v)+" ("+modal.sub+")");
     setModal(null);
   };
 
@@ -580,42 +613,94 @@ export default function App() {
         <span style={{color:"#3B6D11",display:"flex",alignItems:"center",gap:4}}><span style={{width:9,height:9,borderRadius:"50%",background:"#C0DD97",display:"inline-block"}}/> 완료</span>
       </div>
 
-      {/* 접속 이력 모달 */}
+      {/* 접속/활동 이력 모달 */}
       {showLog && (
         <div style={S.modalBg} onClick={e=>e.target===e.currentTarget&&setShowLog(false)}>
-          <div style={{...S.modalBox, width:"min(480px,94vw)", maxHeight:"80vh", display:"flex", flexDirection:"column"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-              <h3 style={{fontSize:15,fontWeight:600}}>👁 접속자 현황 이력</h3>
+          <div style={{...S.modalBox, width:"min(560px,96vw)", maxHeight:"85vh", display:"flex", flexDirection:"column"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+              <h3 style={{fontSize:15,fontWeight:600}}>👁 관리자 이력</h3>
               <button style={S.btnCancel} onClick={()=>setShowLog(false)}>✕ 닫기</button>
             </div>
+            {/* 탭 */}
+            <div style={{display:"flex",gap:6,marginBottom:12}}>
+              {[["activity","📋 작업이력"],["access","🔑 접속이력"]].map(([k,l])=>(
+                <button key={k} onClick={()=>setLogTab(k)}
+                  style={{fontSize:12,padding:"6px 14px",borderRadius:8,cursor:"pointer",fontFamily:"inherit",
+                    background:logTab===k?"#1a1a1a":"transparent",
+                    color:logTab===k?"#fff":"#1a1a1a",
+                    border:logTab===k?"none":"0.5px solid #ccc"}}>
+                  {l}
+                </button>
+              ))}
+            </div>
             <div style={{overflowY:"auto",flex:1}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
-                <thead>
-                  <tr style={{background:"#f8f7f3",position:"sticky",top:0}}>
-                    <th style={{padding:"8px 12px",textAlign:"left",fontWeight:500,color:"#888",fontSize:12}}>이름</th>
-                    <th style={{padding:"8px 12px",textAlign:"left",fontWeight:500,color:"#888",fontSize:12}}>권한</th>
-                    <th style={{padding:"8px 12px",textAlign:"left",fontWeight:500,color:"#888",fontSize:12}}>접속시각</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {accessLogs.length === 0
-                    ? <tr><td colSpan={3} style={{padding:24,textAlign:"center",color:"#aaa"}}>접속 이력이 없습니다.</td></tr>
-                    : accessLogs.map((log, i) => (
-                      <tr key={log.key||i} style={{borderBottom:"0.5px solid #ebebeb", background: i===0?"#F0F7FF":"transparent"}}>
-                        <td style={{padding:"8px 12px",fontWeight:500}}>{log.name}</td>
-                        <td style={{padding:"8px 12px"}}>
-                          <span style={{fontSize:11,padding:"2px 8px",borderRadius:20,fontWeight:500,
-                            background:log.role==="master"?"#1a1a1a":"#f0efeb",
-                            color:log.role==="master"?"#fff":"#555"}}>
-                            {log.role==="master"?"👑 마스터":"👤 일반"}
-                          </span>
-                        </td>
-                        <td style={{padding:"8px 12px",fontSize:12,color:"#666"}}>{log.time}</td>
-                      </tr>
-                    ))
-                  }
-                </tbody>
-              </table>
+              {logTab === "activity" ? (
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                  <thead>
+                    <tr style={{background:"#f8f7f3",position:"sticky",top:0}}>
+                      <th style={{padding:"8px 10px",textAlign:"left",fontWeight:500,color:"#888",fontSize:11,whiteSpace:"nowrap"}}>시각</th>
+                      <th style={{padding:"8px 10px",textAlign:"left",fontWeight:500,color:"#888",fontSize:11,whiteSpace:"nowrap"}}>이름</th>
+                      <th style={{padding:"8px 10px",textAlign:"left",fontWeight:500,color:"#888",fontSize:11,whiteSpace:"nowrap"}}>작업</th>
+                      <th style={{padding:"8px 10px",textAlign:"left",fontWeight:500,color:"#888",fontSize:11}}>내용</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activityLogs.length === 0
+                      ? <tr><td colSpan={4} style={{padding:24,textAlign:"center",color:"#aaa"}}>작업 이력이 없습니다.</td></tr>
+                      : activityLogs.map((log,i) => {
+                          const actionColor =
+                            log.action==="삭제" ? "#A32D2D" :
+                            log.action==="완료처리" ? "#3B6D11" :
+                            log.action==="일부완료처리" ? "#92600A" :
+                            log.action==="엑셀업로드" ? "#1a56db" :
+                            log.action==="등록" ? "#1a1a1a" : "#555";
+                          return (
+                            <tr key={log.key||i} style={{borderBottom:"0.5px solid #ebebeb",background:i===0?"#F0F7FF":"transparent"}}>
+                              <td style={{padding:"7px 10px",fontSize:11,color:"#888",whiteSpace:"nowrap"}}>{log.time}</td>
+                              <td style={{padding:"7px 10px",fontWeight:500,whiteSpace:"nowrap"}}>{log.name}</td>
+                              <td style={{padding:"7px 10px",whiteSpace:"nowrap"}}>
+                                <span style={{fontSize:11,padding:"2px 7px",borderRadius:20,fontWeight:500,
+                                  background:actionColor==="#A32D2D"?"#FCEBEB":actionColor==="#3B6D11"?"#EAF3DE":actionColor==="#92600A"?"#FFFBEA":actionColor==="#1a56db"?"#E8F0FE":"#f0efeb",
+                                  color:actionColor}}>
+                                  {log.action}
+                                </span>
+                              </td>
+                              <td style={{padding:"7px 10px",fontSize:12,color:"#444"}}>{log.detail}</td>
+                            </tr>
+                          );
+                        })
+                    }
+                  </tbody>
+                </table>
+              ) : (
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                  <thead>
+                    <tr style={{background:"#f8f7f3",position:"sticky",top:0}}>
+                      <th style={{padding:"8px 12px",textAlign:"left",fontWeight:500,color:"#888",fontSize:11}}>이름</th>
+                      <th style={{padding:"8px 12px",textAlign:"left",fontWeight:500,color:"#888",fontSize:11}}>권한</th>
+                      <th style={{padding:"8px 12px",textAlign:"left",fontWeight:500,color:"#888",fontSize:11}}>접속시각</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {accessLogs.length === 0
+                      ? <tr><td colSpan={3} style={{padding:24,textAlign:"center",color:"#aaa"}}>접속 이력이 없습니다.</td></tr>
+                      : accessLogs.map((log,i) => (
+                        <tr key={log.key||i} style={{borderBottom:"0.5px solid #ebebeb",background:i===0?"#F0F7FF":"transparent"}}>
+                          <td style={{padding:"8px 12px",fontWeight:500}}>{log.name}</td>
+                          <td style={{padding:"8px 12px"}}>
+                            <span style={{fontSize:11,padding:"2px 8px",borderRadius:20,fontWeight:500,
+                              background:log.role==="master"?"#1a1a1a":"#f0efeb",
+                              color:log.role==="master"?"#fff":"#555"}}>
+                              {log.role==="master"?"👑 마스터":"👤 일반"}
+                            </span>
+                          </td>
+                          <td style={{padding:"8px 12px",fontSize:12,color:"#666"}}>{log.time}</td>
+                        </tr>
+                      ))
+                    }
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>
