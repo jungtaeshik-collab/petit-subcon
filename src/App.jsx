@@ -513,7 +513,7 @@ export default function App() {
                     <td style={{padding:"8px 12px",textAlign:"right",color:"#3B6D11",background:"#F3FAE8",fontWeight:600}}>{v.doneAmount?fmt(v.doneAmount)+"원":"—"}</td>
                     <td style={{padding:"8px 12px",textAlign:"right",color:"#92600A",borderLeft:"1px solid #ebebeb",background:"#FFFDF0"}}>{v.etcCnt}건</td>
                     <td style={{padding:"8px 12px",textAlign:"right",color:"#92600A",background:"#FFFDF0"}}>{fmt(v.etcQty)}</td>
-                    <td style={{padding:"8px 12px",textAlign:"right",color:"#92600A",background:"#FFFDF0",fontWeight:600}}>{v.etcAmount?fmt(v.etcAmount)+"원":"—"}</td>
+                    <td style={{padding:"8px 12px",textAlign:"right",color:"#bbb",background:"#FFFDF0"}}>—</td>
                   </tr>
                 ))}
                 <tr style={{fontWeight:600}}>
@@ -523,7 +523,7 @@ export default function App() {
                   <td style={{padding:"8px 12px",textAlign:"right",color:"#3B6D11",background:"#EAF3DE"}}>{fmt(reportRows.reduce((s,[,v])=>s+v.doneAmount,0))}원</td>
                   <td style={{padding:"8px 12px",textAlign:"right",color:"#92600A",borderLeft:"1px solid #e0e0dc",background:"#FFFBEA"}}>{reportRows.reduce((s,[,v])=>s+v.etcCnt,0)}건</td>
                   <td style={{padding:"8px 12px",textAlign:"right",color:"#92600A",background:"#FFFBEA"}}>{fmt(reportRows.reduce((s,[,v])=>s+v.etcQty,0))}</td>
-                  <td style={{padding:"8px 12px",textAlign:"right",color:"#92600A",background:"#FFFBEA"}}>{fmt(reportRows.reduce((s,[,v])=>s+v.etcAmount,0))}원</td>
+                  <td style={{padding:"8px 12px",textAlign:"right",color:"#bbb",background:"#FFFBEA"}}>—</td>
                 </tr>
               </tbody>
             </table>
