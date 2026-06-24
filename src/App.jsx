@@ -331,12 +331,15 @@ export default function App() {
     const inRange = jobs.filter(j => {
       const d = toDateObj(j.date);
       if (!d || d < from || d > to) return false;
-      return !wf || j.worker.trim().slice(0,3).toLowerCase().includes(wf);
+      const wRaw3 = String(j.worker||'').trim();
+      const wKey3 = wRaw3.startsWith('원광') ? '원광' : wRaw3.slice(0,3);
+      return !wf || wKey3.toLowerCase().includes(wf);
     });
     if (!inRange.length) { alert("해당 기간에 작업 내역이 없습니다."); return; }
     const map = {};
     inRange.forEach(j => {
-      const workerKey = j.worker.trim().slice(0, 3); // 앞 3글자로 그룹핑
+      const wRaw = String(j.worker||'').trim();
+      const workerKey = wRaw.startsWith('원광') ? '원광' : wRaw.slice(0,3);
       if (!map[workerKey]) map[workerKey] = {
         totalCnt:0, totalQty:0, totalAmount:0,
         doneCnt:0,  doneQty:0,  doneAmount:0,
@@ -377,16 +380,16 @@ export default function App() {
   const ActBtns = ({j}) => {
     if (role !== "master") return <span className="lock"><i className="ti ti-lock"/></span>;
     if (j.status === "pending") return <div className="act-group">
-      <button className="act-btn act-pt" onClick={()=>setStatus(j,"partial")}><i className="ti ti-triangle" style={{fontSize:9}}/> 일부완료</button>
-      <button className="act-btn act-d"  onClick={()=>setStatus(j,"done")}><i className="ti ti-check"/> 완료</button>
+      <button className="act-btn act-pt" onClick={()=>setStatus(j,"partial")} style={{fontSize:8,padding:"3px 6px"}}><i className="ti ti-triangle" style={{fontSize:7}}/> 일부완료</button>
+      <button className="act-btn act-d"  onClick={()=>setStatus(j,"done")} style={{fontSize:14,padding:"8px 14px",fontWeight:600}}><i className="ti ti-check"/> 완료</button>
     </div>;
     if (j.status === "partial") return <div className="act-group">
-      <button className="act-btn act-d" onClick={()=>setStatus(j,"done")}><i className="ti ti-check"/> 완료</button>
-      <button className="act-btn act-u" onClick={()=>setStatus(j,"pending")}><i className="ti ti-arrow-back-up"/> 취소</button>
+      <button className="act-btn act-d" onClick={()=>setStatus(j,"done")} style={{fontSize:14,padding:"8px 14px",fontWeight:600}}><i className="ti ti-check"/> 완료</button>
+      <button className="act-btn act-u" onClick={()=>setStatus(j,"pending")} style={{fontSize:8,padding:"3px 6px"}}><i className="ti ti-arrow-back-up"/> 취소</button>
     </div>;
     return <div className="act-group">
-      <button className="act-btn act-pt" onClick={()=>setStatus(j,"partial")}><i className="ti ti-triangle" style={{fontSize:9}}/> 일부완료</button>
-      <button className="act-btn act-u"  onClick={()=>setStatus(j,"pending")}><i className="ti ti-arrow-back-up"/> 미완료</button>
+      <button className="act-btn act-pt" onClick={()=>setStatus(j,"partial")} style={{fontSize:8,padding:"3px 6px"}}><i className="ti ti-triangle" style={{fontSize:7}}/> 일부완료</button>
+      <button className="act-btn act-u"  onClick={()=>setStatus(j,"pending")} style={{fontSize:8,padding:"3px 6px"}}><i className="ti ti-arrow-back-up"/> 미완료</button>
     </div>;
   };
 
@@ -489,38 +492,38 @@ export default function App() {
               <thead>
                 <tr style={{background:"#f8f7f3"}}>
                   <th style={S.rth} rowSpan={2}>작업자</th>
-                  <th style={{...S.rth,textAlign:"center",borderBottom:"0.5px solid #e0e0dc"}} colSpan={3}>⏳ 미완료·일부완료</th>
-                  <th style={{...S.rth,textAlign:"center",borderBottom:"0.5px solid #e0e0dc",borderLeft:"1px solid #e0e0dc"}} colSpan={3}>✅ 완료 (정산)</th>
+                  <th style={{...S.rth,textAlign:"center",borderBottom:"0.5px solid #e0e0dc",background:"#EAF3DE"}} colSpan={3}>✅ 완료 (정산)</th>
+                  <th style={{...S.rth,textAlign:"center",borderBottom:"0.5px solid #e0e0dc",borderLeft:"1px solid #e0e0dc",background:"#FFFBEA"}} colSpan={3}>⏳ 미완료·일부완료</th>
                 </tr>
                 <tr style={{background:"#f8f7f3"}}>
-                  <th style={{...S.rth,textAlign:"right"}}>건수</th>
-                  <th style={{...S.rth,textAlign:"right"}}>수량</th>
-                  <th style={{...S.rth,textAlign:"right"}}>금액</th>
-                  <th style={{...S.rth,textAlign:"right",borderLeft:"1px solid #e0e0dc"}}>건수</th>
-                  <th style={{...S.rth,textAlign:"right"}}>수량</th>
-                  <th style={{...S.rth,textAlign:"right"}}>금액</th>
+                  <th style={{...S.rth,textAlign:"right",background:"#EAF3DE"}}>건수</th>
+                  <th style={{...S.rth,textAlign:"right",background:"#EAF3DE"}}>수량</th>
+                  <th style={{...S.rth,textAlign:"right",background:"#EAF3DE"}}>금액</th>
+                  <th style={{...S.rth,textAlign:"right",borderLeft:"1px solid #e0e0dc",background:"#FFFBEA"}}>건수</th>
+                  <th style={{...S.rth,textAlign:"right",background:"#FFFBEA"}}>수량</th>
+                  <th style={{...S.rth,textAlign:"right",background:"#FFFBEA"}}>금액</th>
                 </tr>
               </thead>
               <tbody>
                 {reportRows.map(([w,v])=>(
                   <tr key={w} style={{borderBottom:"0.5px solid #ebebeb"}}>
                     <td style={{padding:"8px 12px",fontWeight:500}}>{w}</td>
-                    <td style={{padding:"8px 12px",textAlign:"right",color:"#92600A"}}>{v.etcCnt}건</td>
-                    <td style={{padding:"8px 12px",textAlign:"right",color:"#92600A"}}>{fmt(v.etcQty)}</td>
-                    <td style={{padding:"8px 12px",textAlign:"right",color:"#92600A",fontWeight:600}}>{v.etcAmount?fmt(v.etcAmount)+"원":"—"}</td>
-                    <td style={{padding:"8px 12px",textAlign:"right",color:"#3B6D11",borderLeft:"1px solid #ebebeb"}}>{v.doneCnt}건</td>
-                    <td style={{padding:"8px 12px",textAlign:"right",color:"#3B6D11"}}>{fmt(v.doneQty)}</td>
-                    <td style={{padding:"8px 12px",textAlign:"right",color:"#3B6D11",fontWeight:600}}>{v.doneAmount?fmt(v.doneAmount)+"원":"—"}</td>
+                    <td style={{padding:"8px 12px",textAlign:"right",color:"#3B6D11",background:"#F3FAE8"}}>{v.doneCnt}건</td>
+                    <td style={{padding:"8px 12px",textAlign:"right",color:"#3B6D11",background:"#F3FAE8"}}>{fmt(v.doneQty)}</td>
+                    <td style={{padding:"8px 12px",textAlign:"right",color:"#3B6D11",background:"#F3FAE8",fontWeight:600}}>{v.doneAmount?fmt(v.doneAmount)+"원":"—"}</td>
+                    <td style={{padding:"8px 12px",textAlign:"right",color:"#92600A",borderLeft:"1px solid #ebebeb",background:"#FFFDF0"}}>{v.etcCnt}건</td>
+                    <td style={{padding:"8px 12px",textAlign:"right",color:"#92600A",background:"#FFFDF0"}}>{fmt(v.etcQty)}</td>
+                    <td style={{padding:"8px 12px",textAlign:"right",color:"#92600A",background:"#FFFDF0",fontWeight:600}}>{v.etcAmount?fmt(v.etcAmount)+"원":"—"}</td>
                   </tr>
                 ))}
-                <tr style={{background:"#f3fae8",fontWeight:600}}>
-                  <td style={{padding:"8px 12px"}}>합계</td>
-                  <td style={{padding:"8px 12px",textAlign:"right",color:"#92600A"}}>{reportRows.reduce((s,[,v])=>s+v.etcCnt,0)}건</td>
-                  <td style={{padding:"8px 12px",textAlign:"right",color:"#92600A"}}>{fmt(reportRows.reduce((s,[,v])=>s+v.etcQty,0))}</td>
-                  <td style={{padding:"8px 12px",textAlign:"right",color:"#92600A"}}>{fmt(reportRows.reduce((s,[,v])=>s+v.etcAmount,0))}원</td>
-                  <td style={{padding:"8px 12px",textAlign:"right",color:"#3B6D11",borderLeft:"1px solid #e0e0dc"}}>{reportRows.reduce((s,[,v])=>s+v.doneCnt,0)}건</td>
-                  <td style={{padding:"8px 12px",textAlign:"right",color:"#3B6D11"}}>{fmt(reportRows.reduce((s,[,v])=>s+v.doneQty,0))}</td>
-                  <td style={{padding:"8px 12px",textAlign:"right",color:"#3B6D11"}}>{fmt(reportRows.reduce((s,[,v])=>s+v.doneAmount,0))}원</td>
+                <tr style={{fontWeight:600}}>
+                  <td style={{padding:"8px 12px",background:"#f3fae8"}}>합계</td>
+                  <td style={{padding:"8px 12px",textAlign:"right",color:"#3B6D11",background:"#EAF3DE"}}>{reportRows.reduce((s,[,v])=>s+v.doneCnt,0)}건</td>
+                  <td style={{padding:"8px 12px",textAlign:"right",color:"#3B6D11",background:"#EAF3DE"}}>{fmt(reportRows.reduce((s,[,v])=>s+v.doneQty,0))}</td>
+                  <td style={{padding:"8px 12px",textAlign:"right",color:"#3B6D11",background:"#EAF3DE"}}>{fmt(reportRows.reduce((s,[,v])=>s+v.doneAmount,0))}원</td>
+                  <td style={{padding:"8px 12px",textAlign:"right",color:"#92600A",borderLeft:"1px solid #e0e0dc",background:"#FFFBEA"}}>{reportRows.reduce((s,[,v])=>s+v.etcCnt,0)}건</td>
+                  <td style={{padding:"8px 12px",textAlign:"right",color:"#92600A",background:"#FFFBEA"}}>{fmt(reportRows.reduce((s,[,v])=>s+v.etcQty,0))}</td>
+                  <td style={{padding:"8px 12px",textAlign:"right",color:"#92600A",background:"#FFFBEA"}}>{fmt(reportRows.reduce((s,[,v])=>s+v.etcAmount,0))}원</td>
                 </tr>
               </tbody>
             </table>
