@@ -613,6 +613,50 @@ export default function App() {
         </table>
       </div>
 
+      {/* 페이지네이션 */}
+      {filtered.length > PAGE_SIZE && (
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:4,padding:"14px 0",flexWrap:"wrap"}}>
+          <button onClick={()=>setPage(1)} disabled={page===1}
+            style={{...S.pgBtn,opacity:page===1?0.3:1}}>«</button>
+          <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1}
+            style={{...S.pgBtn,opacity:page===1?0.3:1}}>‹</button>
+
+          {Array.from({length:totalPages},(_,i)=>i+1)
+            .filter(n=>n===1||n===totalPages||Math.abs(n-page)<=4)
+            .reduce((acc,n,i,arr)=>{
+              if(i>0&&n-arr[i-1]>1) acc.push("...");
+              acc.push(n); return acc;
+            },[])
+            .map((n,i)=> n==="..."
+              ? <span key={"e"+i} style={{padding:"0 4px",color:"#aaa",fontSize:13}}>…</span>
+              : <button key={n} onClick={()=>setPage(n)}
+                  style={{...S.pgBtn,
+                    background:page===n?"#1a1a1a":"transparent",
+                    color:page===n?"#fff":"#1a1a1a",
+                    border:page===n?"none":"0.5px solid #ccc",
+                    fontWeight:page===n?600:400,
+                    minWidth:32}}>
+                  {n}
+                </button>
+            )
+          }
+
+          <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages}
+            style={{...S.pgBtn,opacity:page===totalPages?0.3:1}}>›</button>
+          <button onClick={()=>setPage(totalPages)} disabled={page===totalPages}
+            style={{...S.pgBtn,opacity:page===totalPages?0.3:1}}>»</button>
+
+          <span style={{fontSize:12,color:"#888",marginLeft:8,display:"flex",alignItems:"center",gap:4}}>
+            <input type="number" min={1} max={totalPages}
+              defaultValue={page} key={page}
+              onKeyDown={e=>{if(e.key==="Enter"){const v=parseInt(e.target.value);if(v>=1&&v<=totalPages)setPage(v);}}}
+              style={{width:48,height:30,border:"0.5px solid #ccc",borderRadius:6,padding:"0 6px",fontSize:12,textAlign:"center",fontFamily:"inherit",outline:"none",boxSizing:"border-box"}}
+            />
+            <span>/ {totalPages}</span>
+          </span>
+        </div>
+      )}
+
       {/* 범례 */}
       <div style={{display:"flex",gap:14,flexWrap:"wrap",padding:"2px 0 8px",fontSize:11}}>
         <span style={{color:"#A32D2D",display:"flex",alignItems:"center",gap:4}}><span style={{width:9,height:9,borderRadius:"50%",background:"#F7C1C1",display:"inline-block"}}/> 미완료</span>
