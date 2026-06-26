@@ -58,6 +58,8 @@ export default function App() {
   const [jobs, setJobs] = useState([]);
   const [syncMsg, setSyncMsg] = useState("");
   const [tab, setTab] = useState("all");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 100;
 
   // form
   const [item, setItem] = useState("");
@@ -367,6 +369,8 @@ export default function App() {
   const partial = jobs.filter(j => j.status === "partial");
   const done    = jobs.filter(j => j.status === "done");
   const filtered = tab==="pending"?pending : tab==="partial"?partial : tab==="done"?done : jobs;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
 
   const rowCls = j => j.status==="done"?"row-d":j.status==="partial"?"row-pt":"row-p";
   const txCls  = j => j.status==="done"?"tx-d":j.status==="partial"?"tx-pt":"tx-n";
@@ -534,7 +538,7 @@ export default function App() {
       {/* 탭 */}
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
         {[["all","전체"],["pending","미완료"],["partial","일부완료"],["done","완료"]].map(([k,l])=>(
-          <button key={k} onClick={()=>setTab(k)}
+          <button key={k} onClick={()=>{setTab(k);setPage(1);}}
             style={tab===k ? S.tabOn : S.tabOff}>{l}</button>
         ))}
       </div>
@@ -564,7 +568,7 @@ export default function App() {
               <tr><td colSpan={11} style={{padding:36,textAlign:"center",color:"#aaa",fontSize:13}}>
                 등록된 작업이 없습니다.
               </td></tr>
-            ) : filtered.map((j,idx)=>(
+            ) : paginated.map((j,idx)=>(
               <tr key={j.fbKey} style={{background: j.status==="done"?"#F3FAE8":j.status==="partial"?"#FFFDF0":"#FEF6F6", borderBottom:"0.5px solid #ebebeb"}}>
                 <td style={{padding:"9px 12px",color:"#aaa"}}>{idx+1}</td>
                 <td style={{padding:"9px 12px",fontWeight:500,color:j.status==="done"?"#A32D2D":j.status==="partial"?"#92600A":"#1a1a1a",textDecoration:j.status==="done"?"line-through":"none",whiteSpace:"normal",minWidth:90}}>
@@ -784,4 +788,5 @@ const S = {
   modalInp:    { width:"100%", height:44, border:"0.5px solid #ccc", borderRadius:8, padding:"0 12px", fontSize:20, fontFamily:"inherit", outline:"none", background:"#fafaf8", textAlign:"right", marginBottom:14, boxSizing:"border-box" },
   btnSave:     { flex:1, height:40, border:"none", borderRadius:8, background:"#1a1a1a", color:"#fff", fontSize:14, cursor:"pointer", fontWeight:500 },
   btnCancel:   { flex:1, height:40, border:"0.5px solid #ccc", borderRadius:8, background:"transparent", color:"#888", fontSize:14, cursor:"pointer" },
+  pgBtn:       { height:30, minWidth:30, padding:"0 6px", border:"0.5px solid #ccc", borderRadius:6, background:"transparent", color:"#1a1a1a", fontSize:13, cursor:"pointer", fontFamily:"inherit" },
 };
