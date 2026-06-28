@@ -306,21 +306,53 @@ export default function App() {
   const openModal = (j, field) => {
     if (!canEdit(j)) return;
     setModal({ fbKey: j.fbKey, field, sub: j.item + " / " + j.worker });
-    const initVal = field === "qty" ? j.qty : field === "price" ? j.price : field === "item" ? j.item : j.worker;
+    let initVal;
+    if (field === "date") {
+      // YY.MM.DD HH:MM → YYYY-MM-DD 변환 (date input용)
+      const datePart = (j.date||"").split(" ")[0];
+      const p = datePart.split(".");
+      if (p.length === 3) {
+        const yyyy = p[0].length===2 ? "20"+p[0] : p[0];
+        initVal = yyyy+"-"+p[1]+"-"+p[2];
+      } else { initVal = ""; }
+    } else {
+      initVal = field === "qty" ? j.qty : field === "price" ? j.price : field === "item" ? j.item : j.worker;
+    }
     setModalVal(String(initVal ?? ""));
     setTimeout(() => modalRef.current?.focus(), 80);
   };
   const saveModal = async () => {
+    if (modal.field === "date") {
+      if (!modalVal.trim()) return;
+      // date input(YYYY-MM-DD) → 앱 형식(YY.MM.DD HH:MM) 변환, 시간은 현재 시각
+      const parts = modalVal.split("-");
+      if (parts.length === 3) {
+        const yy = parts[0].slice(2);
+        const now = new Date();
+        const timeStr = pad(now.getHours())+":"+pad(now.getMinutes());
+        const newDate = yy+"."+parts[1]+"."+parts[2]+" "+timeStr;
+        const curJ1 = jobs.find(x=>x.fbKey===modal.fbKey);
+        const ef1 = [...new Set([...(curJ1?.editedFields||[]), "date"])];
+        await update(ref(db, "jobs/" + modal.fbKey), { date: newDate, editedFields: ef1 });
+        await logActivity("날짜수정", "→"+newDate+" ("+modal.sub+")");
+      }
+      setModal(null);
+      return;
+    }
     if (modal.field === "item" || modal.field === "worker") {
       if (!modalVal.trim()) return;
-      await update(ref(db, "jobs/" + modal.fbKey), { [modal.field]: modalVal.trim() });
+      const curJ2 = jobs.find(x=>x.fbKey===modal.fbKey);
+      const ef2 = [...new Set([...(curJ2?.editedFields||[]), modal.field])];
+      await update(ref(db, "jobs/" + modal.fbKey), { [modal.field]: modalVal.trim(), editedFields: ef2 });
       await logActivity("수정", modal.field==="item"?"품목→"+modalVal.trim():"작업자→"+modalVal.trim()+" ("+modal.sub+")");
       setModal(null);
       return;
     }
     const v = parseInt(modalVal);
     if (isNaN(v) || (modal.field === "qty" && v < 1) || v < 0) return;
-    await update(ref(db, "jobs/" + modal.fbKey), { [modal.field]: v });
+    const curJ3 = jobs.find(x=>x.fbKey===modal.fbKey);
+    const ef3 = [...new Set([...(curJ3?.editedFields||[]), modal.field])];
+    await update(ref(db, "jobs/" + modal.fbKey), { [modal.field]: v, editedFields: ef3 });
     await logActivity("수정", (modal.field==="qty"?"수량":"단가")+"→"+fmt(v)+" ("+modal.sub+")");
     setModal(null);
   };
@@ -571,10 +603,12 @@ export default function App() {
             ) : paginated.map((j,idx)=>(
               <tr key={j.fbKey} style={{background: j.status==="done"?"#F3FAE8":j.status==="partial"?"#FFFDF0":"#FEF6F6", borderBottom:"0.5px solid #ebebeb"}}>
                 <td style={{padding:"9px 12px",color:"#aaa"}}>{idx+1}</td>
-                <td style={{padding:"9px 12px",fontWeight:500,color:j.status==="done"?"#A32D2D":j.status==="partial"?"#92600A":"#1a1a1a",textDecoration:j.status==="done"?"line-through":"none",whiteSpace:"normal",minWidth:90}}>
+                <td style={{padding:"9px 12px",fontWeight:500,color:j.status==="done"?"#A32D2D":j.status==="partial"?"#92600A":"#1a1a1a",textDecoration:j.status==="done"?"line-through":"none",whiteSpace:"normal",minWidth:90,fontStyle:(j.editedFields||[]).includes("item")?"italic":"normal"}}>
+                  {(j.editedFields||[]).includes("item") && <span title="수정됨" style={{color:"#7C3AED",fontSize:9,marginRight:3}}>●</span>}
                   {canEdit(j) ? <span style={S.editable} onClick={()=>openModal(j,"item")}>{j.item}</span> : j.item}
                 </td>
-                <td style={{padding:"9px 12px",color:j.status==="done"?"#A32D2D":j.status==="partial"?"#92600A":"#1a1a1a",textDecoration:j.status==="done"?"line-through":"none",whiteSpace:"normal",minWidth:75}}>
+                <td style={{padding:"9px 12px",color:j.status==="done"?"#A32D2D":j.status==="partial"?"#92600A":"#1a1a1a",textDecoration:j.status==="done"?"line-through":"none",whiteSpace:"normal",minWidth:75,fontStyle:(j.editedFields||[]).includes("worker")?"italic":"normal"}}>
+                  {(j.editedFields||[]).includes("worker") && <span title="수정됨" style={{color:"#7C3AED",fontSize:9,marginRight:3}}>●</span>}
                   {canEdit(j) ? <span style={S.editable} onClick={()=>openModal(j,"worker")}>{j.worker}</span> : j.worker}
                 </td>
                 <td style={{padding:"9px 12px",textAlign:"center",color:j.status==="done"?"#A32D2D":j.status==="partial"?"#92600A":"#1a1a1a",textDecoration:j.status==="done"?"line-through":"none"}}>
@@ -589,9 +623,17 @@ export default function App() {
                 <td style={{padding:"9px 12px",fontSize:12,color:j.status==="done"?"#A32D2D":j.status==="partial"?"#92600A":"#1a1a1a",textDecoration:j.status==="done"?"line-through":"none"}}>
                   {(() => {
                     const parts = (j.date||"").split(" ");
-                    return parts.length >= 2
-                      ? <><span>{parts[0]}</span><br/><span style={{color:"#888",fontSize:11}}>{parts[1]}</span></>
-                      : j.date;
+                    const isDateEdited = (j.editedFields||[]).includes("date");
+                    const display = parts.length >= 2
+                      ? <><span style={{fontStyle:isDateEdited?"italic":"normal"}}>
+                          {isDateEdited && <span title="수정됨" style={{color:"#7C3AED",fontSize:9,marginRight:3}}>●</span>}
+                          {parts[0]}
+                        </span><br/>
+                        <span style={{color:"#888",fontSize:11,fontStyle:isDateEdited?"italic":"normal"}}>{parts[1]}</span></>
+                      : <span style={{fontStyle:isDateEdited?"italic":"normal"}}>{j.date}</span>;
+                    return canEdit(j)
+                      ? <span style={S.editable} onClick={()=>openModal(j,"date")} title="클릭하여 날짜 수정">{display}</span>
+                      : display;
                   })()}
                 </td>
                 <td style={{padding:"9px 12px",fontSize:12}}>{j.doneDate?<span style={{color:"#3B6D11"}}>{j.doneDate}</span>:<span style={{color:"#bbb"}}>—</span>}</td>
@@ -658,10 +700,11 @@ export default function App() {
       )}
 
       {/* 범례 */}
-      <div style={{display:"flex",gap:14,flexWrap:"wrap",padding:"2px 0 8px",fontSize:11}}>
+      <div style={{display:"flex",gap:14,flexWrap:"wrap",padding:"2px 0 8px",fontSize:11,alignItems:"center"}}>
         <span style={{color:"#A32D2D",display:"flex",alignItems:"center",gap:4}}><span style={{width:9,height:9,borderRadius:"50%",background:"#F7C1C1",display:"inline-block"}}/> 미완료</span>
         <span style={{color:"#6B4400",display:"flex",alignItems:"center",gap:4}}><span style={{width:0,height:0,borderLeft:"5px solid transparent",borderRight:"5px solid transparent",borderBottom:"9px solid #FAE588",display:"inline-block"}}/> 일부완료</span>
         <span style={{color:"#3B6D11",display:"flex",alignItems:"center",gap:4}}><span style={{width:9,height:9,borderRadius:"50%",background:"#C0DD97",display:"inline-block"}}/> 완료</span>
+        <span style={{color:"#7C3AED",display:"flex",alignItems:"center",gap:4,marginLeft:8}}><span style={{fontSize:9}}>●</span> <em>수정된 항목</em></span>
       </div>
 
       {/* 접속/활동 이력 모달 */}
@@ -762,15 +805,17 @@ export default function App() {
         <div style={S.modalBg} onClick={e=>e.target===e.currentTarget&&setModal(null)}>
           <div style={S.modalBox}>
             <h3 style={{fontSize:15,fontWeight:600,marginBottom:4}}>
-              {modal.field==="qty"?"수량 수정":modal.field==="price"?"단가 수정":modal.field==="item"?"품목 수정":"작업자 수정"}
+              {modal.field==="qty"?"수량 수정":modal.field==="price"?"단가 수정":modal.field==="item"?"품목 수정":modal.field==="date"?"지급일 수정":"작업자 수정"}
             </h3>
             <p style={{fontSize:12,color:"#888",marginBottom:16}}>{modal.sub}</p>
             <label style={S.lbl}>
-              {modal.field==="qty"?"수량":modal.field==="price"?"단가 (원)":modal.field==="item"?"품목명":"작업자명"}
+              {modal.field==="qty"?"수량":modal.field==="price"?"단가 (원)":modal.field==="item"?"품목명":modal.field==="date"?"지급일":"작업자명"}
             </label>
             <input ref={modalRef}
-              style={{...S.modalInp, textAlign:(modal.field==="item"||modal.field==="worker")?"left":"right"}}
-              type={modal.field==="item"||modal.field==="worker"?"text":"number"}
+              style={{...S.modalInp,
+                textAlign:(modal.field==="item"||modal.field==="worker"||modal.field==="date")?"left":"right",
+                fontSize: modal.field==="date"?16:20}}
+              type={modal.field==="item"||modal.field==="worker"?"text":modal.field==="date"?"date":"number"}
               min={modal.field==="qty"?1:0} value={modalVal}
               onChange={e=>setModalVal(e.target.value)}
               onKeyDown={e=>{if(e.key==="Enter")saveModal();if(e.key==="Escape")setModal(null);}}/>
