@@ -58,6 +58,7 @@ export default function App() {
   const [jobs, setJobs] = useState([]);
   const [syncMsg, setSyncMsg] = useState("");
   const [tab, setTab] = useState("all");
+  const [creatorFilter, setCreatorFilter] = useState("all");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 100;
 
@@ -400,9 +401,11 @@ export default function App() {
   const pending = jobs.filter(j => j.status === "pending");
   const partial = jobs.filter(j => j.status === "partial");
   const done    = jobs.filter(j => j.status === "done");
-  const filtered = tab==="pending"?pending : tab==="partial"?partial : tab==="done"?done : jobs;
+  const byStatus = tab==="pending"?pending : tab==="partial"?partial : tab==="done"?done : jobs;
+  const filtered = creatorFilter==="all" ? byStatus : byStatus.filter(j=>j.createdBy===creatorFilter);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
+  const creatorList = Object.values(USERS).map(u=>u.name);
 
   const rowCls = j => j.status==="done"?"row-d":j.status==="partial"?"row-pt":"row-p";
   const txCls  = j => j.status==="done"?"tx-d":j.status==="partial"?"tx-pt":"tx-n";
@@ -572,6 +575,17 @@ export default function App() {
         {[["all","전체"],["pending","미완료"],["partial","일부완료"],["done","완료"]].map(([k,l])=>(
           <button key={k} onClick={()=>{setTab(k);setPage(1);}}
             style={tab===k ? S.tabOn : S.tabOff}>{l}</button>
+        ))}
+      </div>
+
+      {/* 작성자 필터 */}
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12,alignItems:"center"}}>
+        <span style={{fontSize:12,color:"#888",marginRight:2}}>작성자:</span>
+        <button onClick={()=>{setCreatorFilter("all");setPage(1);}}
+          style={creatorFilter==="all" ? S.tabOn : S.tabOff}>전체</button>
+        {creatorList.map(name=>(
+          <button key={name} onClick={()=>{setCreatorFilter(name);setPage(1);}}
+            style={creatorFilter===name ? S.tabOn : S.tabOff}>{name}</button>
         ))}
       </div>
 
