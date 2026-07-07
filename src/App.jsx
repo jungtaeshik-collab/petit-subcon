@@ -59,7 +59,8 @@ export default function App() {
   const [syncMsg, setSyncMsg] = useState("");
   const [tab, setTab] = useState("all");
   const [creatorFilter, setCreatorFilter] = useState("all");
-  const [searchDate, setSearchDate] = useState("");
+  const [searchFrom, setSearchFrom] = useState("");
+  const [searchTo, setSearchTo]     = useState("");
   const [searchItem, setSearchItem] = useState("");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 100;
@@ -406,9 +407,10 @@ export default function App() {
   const byStatus = tab==="pending"?pending : tab==="partial"?partial : tab==="done"?done : jobs;
   const filtered = byStatus.filter(j=>{
     if(creatorFilter!=="all" && j.createdBy!==creatorFilter) return false;
-    if(searchDate){
-      const datePart = (j.date||"").split(" ")[0];
-      if(!datePart.includes(searchDate.replaceAll("-","."))) return false;
+    if(searchFrom || searchTo) {
+      const d = toDateObj((j.date||"").split(" ")[0]);
+      if(searchFrom){ const f=new Date(searchFrom); if(!d||d<f) return false; }
+      if(searchTo)  { const t=new Date(searchTo); t.setHours(23,59,59); if(!d||d>t) return false; }
     }
     if(searchItem && !j.item.toLowerCase().includes(searchItem.toLowerCase())) return false;
     return true;
@@ -589,26 +591,32 @@ export default function App() {
         ))}
       </div>
 
-      {/* 날짜+품목 검색 */}
+      {/* 날짜기간+품목 검색 */}
       <div style={{background:"#fff",border:"0.5px solid #e0e0dc",borderRadius:12,padding:"12px 16px",marginBottom:12,display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
         <div>
-          <label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>날짜 검색</label>
-          <input type="date" value={searchDate} onChange={e=>{setSearchDate(e.target.value);setPage(1);}}
+          <label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>시작일</label>
+          <input type="date" value={searchFrom} onChange={e=>{setSearchFrom(e.target.value);setPage(1);}}
+            style={{height:36,border:"0.5px solid #ccc",borderRadius:8,padding:"0 10px",fontSize:13,fontFamily:"inherit",outline:"none",background:"#fafaf8"}}/>
+        </div>
+        <span style={{alignSelf:"flex-end",paddingBottom:8,color:"#888",fontSize:13}}>~</span>
+        <div>
+          <label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>종료일</label>
+          <input type="date" value={searchTo} onChange={e=>{setSearchTo(e.target.value);setPage(1);}}
             style={{height:36,border:"0.5px solid #ccc",borderRadius:8,padding:"0 10px",fontSize:13,fontFamily:"inherit",outline:"none",background:"#fafaf8"}}/>
         </div>
         <div>
           <label style={{fontSize:11,color:"#888",display:"block",marginBottom:3}}>품목 검색</label>
-          <input type="text" placeholder="품목명 입력" value={searchItem} onChange={e=>{setSearchItem(e.target.value);setPage(1);}}
-            style={{height:36,border:"0.5px solid #ccc",borderRadius:8,padding:"0 10px",fontSize:13,fontFamily:"inherit",outline:"none",background:"#fafaf8",width:160}}/>
+          <input type="text" placeholder="일부만 입력해도 검색" value={searchItem} onChange={e=>{setSearchItem(e.target.value);setPage(1);}}
+            style={{height:36,border:"0.5px solid #ccc",borderRadius:8,padding:"0 10px",fontSize:13,fontFamily:"inherit",outline:"none",background:"#fafaf8",width:180}}/>
         </div>
-        {(searchDate||searchItem) && (
-          <button onClick={()=>{setSearchDate("");setSearchItem("");setPage(1);}}
+        {(searchFrom||searchTo||searchItem) && (
+          <button onClick={()=>{setSearchFrom("");setSearchTo("");setSearchItem("");setPage(1);}}
             style={{height:36,padding:"0 14px",border:"0.5px solid #ccc",borderRadius:8,background:"transparent",color:"#888",fontSize:13,cursor:"pointer",fontFamily:"inherit",alignSelf:"flex-end"}}>
             ✕ 초기화
           </button>
         )}
-        {(searchDate||searchItem) && (
-          <span style={{fontSize:12,color:"#1a56db",alignSelf:"flex-end",paddingBottom:4}}>
+        {(searchFrom||searchTo||searchItem) && (
+          <span style={{fontSize:12,color:"#1a56db",alignSelf:"flex-end",paddingBottom:4,fontWeight:500}}>
             {filtered.length}건 검색됨
           </span>
         )}
