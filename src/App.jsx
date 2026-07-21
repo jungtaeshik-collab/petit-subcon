@@ -79,6 +79,7 @@ export default function App() {
   const [srchWorker, setSrchWorker] = useState("");
   const [report, setReport] = useState(null);
   const [workerDetail, setWorkerDetail] = useState(null); // {name, jobs[]}
+  const [detailTab, setDetailTab] = useState('all'); // all | done | etc
 
   // modal
   const [modal, setModal] = useState(null);
@@ -371,14 +372,14 @@ export default function App() {
       const d = toDateObj(j.date);
       if (!d || d < from || d > to) return false;
       const wRaw3 = String(j.worker||'').trim();
-      const wKey3 = wRaw3.startsWith('원광') ? '원광' : wRaw3.startsWith('자활') ? '자활' : wRaw3.slice(0,3);
+      const wKey3 = wRaw3.startsWith('원광') ? '원광' : wRaw3.startsWith('자활') ? '자활' : wRaw3.startsWith('시립') ? '시립' : wRaw3.slice(0,3);
       return !wf || wKey3.toLowerCase().includes(wf);
     });
     if (!inRange.length) { alert("해당 기간에 작업 내역이 없습니다."); return; }
     const map = {};
     inRange.forEach(j => {
       const wRaw = String(j.worker||'').trim();
-      const workerKey = wRaw.startsWith('원광') ? '원광' : wRaw.startsWith('자활') ? '자활' : wRaw.slice(0,3);
+      const workerKey = wRaw.startsWith('원광') ? '원광' : wRaw.startsWith('자활') ? '자활' : wRaw.startsWith('시립') ? '시립' : wRaw.slice(0,3);
       if (!map[workerKey]) map[workerKey] = {
         totalCnt:0, totalQty:0, totalAmount:0,
         doneCnt:0,  doneQty:0,  doneAmount:0,
@@ -564,7 +565,7 @@ export default function App() {
                   <tr key={w} style={{borderBottom:"0.5px solid #ebebeb"}}>
                     <td style={{padding:"8px 12px",fontWeight:500}}>
                       <span style={{cursor:"pointer",borderBottom:"1px dashed #1a56db",color:"#1a56db"}}
-                        onClick={()=>setWorkerDetail({name:w, jobs:v.jobs})}>
+                        onClick={()=>{setWorkerDetail({name:w, jobs:v.jobs});setDetailTab('all');}}>
                         {w}
                       </span>
                     </td>
@@ -865,14 +866,30 @@ export default function App() {
 
       {/* 작업자 상세 팝업 */}
       {workerDetail && (
-        <div style={S.modalBg} onClick={e=>e.target===e.currentTarget&&setWorkerDetail(null)}>
+        <div style={S.modalBg} onClick={e=>e.target===e.currentTarget&&(setWorkerDetail(null),setDetailTab('all'))}>
           <div style={{...S.modalBox, width:"min(700px,96vw)", maxHeight:"85vh", display:"flex", flexDirection:"column"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
               <div>
                 <h3 style={{fontSize:15,fontWeight:600}}>{workerDetail.name} 작업 상세</h3>
                 <p style={{fontSize:12,color:"#888",marginTop:3}}>총 {workerDetail.jobs.length}건 · 완료 {workerDetail.jobs.filter(j=>j.status==="done").length}건</p>
               </div>
-              <button style={S.btnCancel} onClick={()=>setWorkerDetail(null)}>✕ 닫기</button>
+              <button style={S.btnCancel} onClick={()=>{setWorkerDetail(null);setDetailTab('all');}}>✕ 닫기</button>
+            </div>
+            {/* 상세 탭 */}
+            <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
+              {[["all","전체"],["done","완료"],["etc","미완료·일부완료"]].map(([k,l])=>(
+                <button key={k} onClick={()=>setDetailTab(k)}
+                  style={{fontSize:12,padding:"5px 14px",borderRadius:8,cursor:"pointer",fontFamily:"inherit",
+                    background:detailTab===k?"#1a1a1a":"transparent",
+                    color:detailTab===k?"#fff":"#1a1a1a",
+                    border:detailTab===k?"none":"0.5px solid #ccc"}}>
+                  {l} ({
+                    k==="all" ? workerDetail.jobs.length :
+                    k==="done" ? workerDetail.jobs.filter(j=>j.status==="done").length :
+                    workerDetail.jobs.filter(j=>j.status!=="done").length
+                  })
+                </button>
+              ))}
             </div>
             <div style={{overflowX:"auto",overflowY:"auto",flex:1}}>
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:480}}>
@@ -889,7 +906,8 @@ export default function App() {
                 </thead>
                 <tbody>
                   {workerDetail.jobs
-                    .sort((a,b)=>new Date(a.date||0)-new Date(b.date||0))
+                    .filter(j=>detailTab==="all"?true:detailTab==="done"?j.status==="done":j.status!=="done")
+                    .sort((a,b)=>(a.date||"").localeCompare(b.date||""))
                     .map((j,i)=>{
                       const isDone = j.status==="done";
                       const isPartial = j.status==="partial";
@@ -919,17 +937,27 @@ export default function App() {
                   }
                 </tbody>
                 <tfoot>
-                  <tr style={{background:"#f3fae8",fontWeight:600,borderTop:"1px solid #e0e0dc"}}>
-                    <td colSpan={2} style={{padding:"8px 10px"}}>완료 합계</td>
-                    <td style={{padding:"8px 10px",textAlign:"center",color:"#3B6D11"}}>
-                      {workerDetail.jobs.filter(j=>j.status==="done").reduce((s,j)=>s+Number(j.qty),0)}
-                    </td>
-                    <td style={{padding:"8px 10px"}}></td>
-                    <td style={{padding:"8px 10px",textAlign:"right",color:"#3B6D11"}}>
-                      {fmt(workerDetail.jobs.filter(j=>j.status==="done").reduce((s,j)=>s+Number(j.qty)*Number(j.price),0))}원
-                    </td>
-                    <td colSpan={2}></td>
-                  </tr>
+                  {(()=>{
+                    const showJobs = detailTab==="done"
+                      ? workerDetail.jobs.filter(j=>j.status==="done")
+                      : detailTab==="etc"
+                        ? workerDetail.jobs.filter(j=>j.status!=="done")
+                        : workerDetail.jobs.filter(j=>j.status==="done");
+                    const totQty = showJobs.reduce((s,j)=>s+Number(j.qty),0);
+                    const totAmt = showJobs.reduce((s,j)=>s+Number(j.qty)*Number(j.price),0);
+                    const label = detailTab==="etc" ? "미완료 합계" : "완료 합계";
+                    const color = detailTab==="etc" ? "#92600A" : "#3B6D11";
+                    const bg    = detailTab==="etc" ? "#FFFBEA" : "#f3fae8";
+                    return (
+                      <tr style={{background:bg,fontWeight:600,borderTop:"1px solid #e0e0dc"}}>
+                        <td colSpan={2} style={{padding:"8px 10px",color}}>{label}</td>
+                        <td style={{padding:"8px 10px",textAlign:"center",color}}>{totQty}</td>
+                        <td style={{padding:"8px 10px"}}></td>
+                        <td style={{padding:"8px 10px",textAlign:"right",color}}>{fmt(totAmt)}원</td>
+                        <td colSpan={2}></td>
+                      </tr>
+                    );
+                  })()}
                 </tfoot>
               </table>
             </div>
