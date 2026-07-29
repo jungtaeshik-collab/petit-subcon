@@ -270,7 +270,9 @@ export default function App() {
           await push(jobsRef, {
             item: itemVal, worker: workerVal,
             qty: qtyVal, price: priceVal,
-            date: dateStr, status: "pending", doneDate: null,
+            date: "",
+            status: "done",
+            doneDate: todayStr(),
             createdBy: userName,
             createdAt: Date.now()
           });
