@@ -315,9 +315,9 @@ export default function App() {
     if (!canEdit(j)) return;
     setModal({ fbKey: j.fbKey, field, sub: j.item + " / " + j.worker });
     let initVal;
-    if (field === "date") {
-      // YY.MM.DD HH:MM → YYYY-MM-DD 변환 (date input용)
-      const datePart = (j.date||"").split(" ")[0];
+    if (field === "date" || field === "doneDate") {
+      const rawDate = field === "date" ? (j.date||"") : (j.doneDate||"");
+      const datePart = rawDate.split(" ")[0];
       const p = datePart.split(".");
       if (p.length === 3) {
         const yyyy = p[0].length===2 ? "20"+p[0] : p[0];
@@ -746,7 +746,17 @@ export default function App() {
                       : display;
                   })()}
                 </td>
-                <td style={{padding:"9px 12px",fontSize:12}}>{j.doneDate?<span style={{color:"#3B6D11"}}>{j.doneDate}</span>:<span style={{color:"#bbb"}}>—</span>}</td>
+                <td style={{padding:"9px 12px",fontSize:12}}>
+                  {j.doneDate
+                    ? (role==="master"
+                        ? <span style={{...S.editable,color:"#3B6D11"}} onClick={()=>openModal(j,"doneDate")} title="완료일 수정">
+                            {(()=>{const p=(j.doneDate||"").split(" ");return p.length>=2?<>{p[0]}<br/><span style={{fontSize:11,color:"#888"}}>{p[1]}</span></>:j.doneDate;})()}
+                          </span>
+                        : <span style={{color:"#3B6D11"}}>
+                            {(()=>{const p=(j.doneDate||"").split(" ");return p.length>=2?<>{p[0]}<br/><span style={{fontSize:11,color:"#888"}}>{p[1]}</span></>:j.doneDate;})()}
+                          </span>)
+                    : <span style={{color:"#bbb"}}>—</span>}
+                </td>
                 <td style={{padding:"9px 12px",textAlign:"center"}}><Pill j={j}/></td>
                 <td style={{padding:"9px 12px",textAlign:"center"}}><ActBtns j={j}/></td>
                 <td style={{padding:"9px 12px",textAlign:"center"}}>
@@ -972,17 +982,17 @@ export default function App() {
         <div style={S.modalBg} onClick={e=>e.target===e.currentTarget&&setModal(null)}>
           <div style={S.modalBox}>
             <h3 style={{fontSize:15,fontWeight:600,marginBottom:4}}>
-              {modal.field==="qty"?"수량 수정":modal.field==="price"?"단가 수정":modal.field==="item"?"품목 수정":modal.field==="date"?"지급일 수정":"작업자 수정"}
+              {modal.field==="qty"?"수량 수정":modal.field==="price"?"단가 수정":modal.field==="item"?"품목 수정":modal.field==="date"?"지급일 수정":modal.field==="doneDate"?"완료일 수정":"작업자 수정"}
             </h3>
             <p style={{fontSize:12,color:"#888",marginBottom:16}}>{modal.sub}</p>
             <label style={S.lbl}>
-              {modal.field==="qty"?"수량":modal.field==="price"?"단가 (원)":modal.field==="item"?"품목명":modal.field==="date"?"지급일":"작업자명"}
+              {modal.field==="qty"?"수량":modal.field==="price"?"단가 (원)":modal.field==="item"?"품목명":modal.field==="date"?"지급일":modal.field==="doneDate"?"완료일":"작업자명"}
             </label>
             <input ref={modalRef}
               style={{...S.modalInp,
-                textAlign:(modal.field==="item"||modal.field==="worker"||modal.field==="date")?"left":"right",
+                textAlign:(modal.field==="item"||modal.field==="worker"||modal.field==="date"||modal.field==="doneDate")?"left":"right",
                 fontSize: modal.field==="date"?16:20}}
-              type={modal.field==="item"||modal.field==="worker"?"text":modal.field==="date"?"date":"number"}
+              type={modal.field==="item"||modal.field==="worker"?"text":(modal.field==="date"||modal.field==="doneDate")?"date":"number"}
               min={modal.field==="qty"?1:0} value={modalVal}
               onChange={e=>setModalVal(e.target.value)}
               onKeyDown={e=>{if(e.key==="Enter")saveModal();if(e.key==="Escape")setModal(null);}}/>
