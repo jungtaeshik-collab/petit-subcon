@@ -735,27 +735,27 @@ export default function App() {
                     const parts = (j.date||"").split(" ");
                     const isDateEdited = (j.editedFields||[]).includes("date");
                     const display = parts.length >= 2
-                      ? <><span style={{fontStyle:isDateEdited?"italic":"normal"}}>
+                      ? <span style={{fontStyle:isDateEdited?"italic":"normal"}}>
                           {isDateEdited && <span title="수정됨" style={{color:"#7C3AED",fontSize:9,marginRight:3}}>●</span>}
-                          {parts[0]}
-                        </span><br/>
-                        <span style={{color:"#888",fontSize:11,fontStyle:isDateEdited?"italic":"normal"}}>{parts[1]}</span></>
-                      : <span style={{fontStyle:isDateEdited?"italic":"normal"}}>{j.date}</span>;
+                          {parts[0]}<br/>
+                          <span style={{color:"#888",fontSize:11}}>{parts[1]}</span>
+                        </span>
+                      : <span style={{fontStyle:isDateEdited?"italic":"normal"}}>{j.date||"—"}</span>;
                     return canEdit(j)
                       ? <span style={S.editable} onClick={()=>openModal(j,"date")} title="클릭하여 날짜 수정">{display}</span>
                       : display;
                   })()}
                 </td>
                 <td style={{padding:"9px 12px",fontSize:12}}>
-                  {j.doneDate
-                    ? (role==="master"
-                        ? <span style={{...S.editable,color:"#3B6D11"}} onClick={()=>openModal(j,"doneDate")} title="완료일 수정">
-                            {(()=>{const p=(j.doneDate||"").split(" ");return p.length>=2?<>{p[0]}<br/><span style={{fontSize:11,color:"#888"}}>{p[1]}</span></>:j.doneDate;})()}
-                          </span>
-                        : <span style={{color:"#3B6D11"}}>
-                            {(()=>{const p=(j.doneDate||"").split(" ");return p.length>=2?<>{p[0]}<br/><span style={{fontSize:11,color:"#888"}}>{p[1]}</span></>:j.doneDate;})()}
-                          </span>)
-                    : <span style={{color:"#bbb"}}>—</span>}
+                  {j.doneDate ? (() => {
+                    const dp = (j.doneDate||"").split(" ");
+                    const dateDisplay = dp.length>=2
+                      ? <span>{dp[0]}<br/><span style={{fontSize:11,color:"#888"}}>{dp[1]}</span></span>
+                      : <span>{j.doneDate}</span>;
+                    return role==="master"
+                      ? <span style={{...S.editable,color:"#3B6D11"}} onClick={()=>openModal(j,"doneDate")} title="완료일 수정">{dateDisplay}</span>
+                      : <span style={{color:"#3B6D11"}}>{dateDisplay}</span>;
+                  })() : <span style={{color:"#bbb"}}>—</span>}
                 </td>
                 <td style={{padding:"9px 12px",textAlign:"center"}}><Pill j={j}/></td>
                 <td style={{padding:"9px 12px",textAlign:"center"}}><ActBtns j={j}/></td>
@@ -878,7 +878,7 @@ export default function App() {
 
       {/* 작업자 상세 팝업 */}
       {workerDetail && (
-        <div style={S.modalBg} onClick={e=>e.target===e.currentTarget&&(setWorkerDetail(null),setDetailTab('all'))}>
+        <div style={S.modalBg} onClick={e=>{if(e.target===e.currentTarget){setWorkerDetail(null);setDetailTab('all');}}}>
           <div style={{...S.modalBox, width:"min(700px,96vw)", maxHeight:"85vh", display:"flex", flexDirection:"column"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
               <div>
