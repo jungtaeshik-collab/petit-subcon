@@ -352,7 +352,9 @@ export default function App() {
   // ── 인라인 수정 모달 ──────────────────────────────────
   const canEdit = (j) => !j ? false : role === "master" || j.status !== "done";
   const openModal = (j, field) => {
-    if (!canEdit(j)) return;
+    // 완료일은 작업자도 수정 가능, 나머지는 canEdit 체크
+    if (field !== "doneDate" && !canEdit(j)) return;
+    if (field === "doneDate" && !role) return;
     setModal({ fbKey: j.fbKey, field, sub: j.item + " / " + j.worker });
     let initVal;
     if (field === "date" || field === "doneDate") {
@@ -789,11 +791,9 @@ export default function App() {
                 </td>
                 <td style={{padding:"9px 12px",fontSize:12}}>
                   {j.doneDate
-                    ? (role==="master"
-                      ? <span style={{...S.editable,color:"#3B6D11"}} onClick={()=>openModal(j,"doneDate")} title="완료일 수정">
-                          <DateCell dateStr={j.doneDate} color="#3B6D11"/>
-                        </span>
-                      : <DateCell dateStr={j.doneDate} color="#3B6D11"/>)
+                    ? <span style={{...S.editable,color:"#3B6D11"}} onClick={()=>openModal(j,"doneDate")} title="완료일 수정">
+                        <DateCell dateStr={j.doneDate} color="#3B6D11"/>
+                      </span>
                     : <span style={{color:"#bbb"}}>—</span>}
                 </td>
                 <td style={{padding:"9px 12px",textAlign:"center"}}><Pill j={j}/></td>
