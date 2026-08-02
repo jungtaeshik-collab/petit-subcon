@@ -40,18 +40,21 @@ function nowStr() {
 }
 
 function toDateObj(s) {
-  if (!s) return null;
-  // "25.06.01 14:30" 또는 "2025.06.01" 형태 모두 처리
-  const dateOnly = s.split(" ")[0]; // 시간 제거
-  const p = dateOnly.split(".");
-  if (p.length < 3) return null;
-  const year = p[0].length === 2 ? 2000 + parseInt(p[0]) : parseInt(p[0]);
-  return new Date(year, parseInt(p[1])-1, parseInt(p[2]));
+  try {
+    if (!s || typeof s !== "string") return null;
+    const dateOnly = s.split(" ")[0];
+    const p = dateOnly.split(".");
+    if (p.length < 3) return null;
+    const year = p[0].length === 2 ? 2000 + parseInt(p[0]) : parseInt(p[0]);
+    const m = parseInt(p[1]), d = parseInt(p[2]);
+    if (isNaN(year)||isNaN(m)||isNaN(d)) return null;
+    return new Date(year, m-1, d);
+  } catch(e) { return null; }
 }
 function fmt(n) { const v=Number(n); return isNaN(v)?"0":v.toLocaleString("ko-KR"); }
 
 function DateCell({dateStr, edited, color, textDeco}) {
-  if (!dateStr) return <span style={{color:"#bbb"}}>—</span>;
+  if (!dateStr || typeof dateStr !== "string") return <span style={{color:"#bbb"}}>—</span>;
   const parts = dateStr.split(" ");
   const isEdited = edited || false;
   return (
@@ -412,7 +415,7 @@ export default function App() {
     const from = new Date(srchFrom), to = new Date(srchTo); to.setHours(23,59,59);
     const wf = srchWorker.trim().toLowerCase();
     const inRange = jobs.filter(j => {
-      const d = toDateObj(j.date);
+      const d = toDateObj(typeof j.date === "string" ? j.date : "");
       if (!d || d < from || d > to) return false;
       const wRaw3 = String(j.worker||'').trim();
       const wKey3 = wRaw3.startsWith('원광') ? '원광' : wRaw3.startsWith('자활') ? '자활' : wRaw3.startsWith('시립') ? '시립' : wRaw3.slice(0,3);
@@ -455,7 +458,8 @@ export default function App() {
   const filtered = byStatus.filter(j=>{
     if(creatorFilter!=="all" && j.createdBy!==creatorFilter) return false;
     if(searchFrom || searchTo) {
-      const d = toDateObj((j.date||"").split(" ")[0]);
+      const rawDate = typeof j.date === "string" ? j.date : "";
+      const d = toDateObj(rawDate.split(" ")[0]);
       if(searchFrom){ const f=new Date(searchFrom); if(!d||d<f) return false; }
       if(searchTo)  { const t=new Date(searchTo); t.setHours(23,59,59); if(!d||d>t) return false; }
     }
