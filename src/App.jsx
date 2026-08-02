@@ -310,7 +310,7 @@ export default function App() {
           await push(jobsRef, {
             item: itemVal, worker: workerVal,
             qty: qtyVal, price: priceVal,
-            date: "",
+            date: null,
             status: "done",
             doneDate: todayStr(),
             createdBy: userName,
