@@ -50,6 +50,43 @@ function toDateObj(s) {
 }
 function fmt(n) { const v=Number(n); return isNaN(v)?"0":v.toLocaleString("ko-KR"); }
 
+function DateCell({dateStr, edited, color, textDeco}) {
+  if (!dateStr) return <span style={{color:"#bbb"}}>—</span>;
+  const parts = dateStr.split(" ");
+  const isEdited = edited || false;
+  return (
+    <span style={{color:color||"inherit", textDecoration:textDeco||"none", fontStyle:isEdited?"italic":"normal"}}>
+      {isEdited && <span style={{color:"#7C3AED",fontSize:9,marginRight:3}}>●</span>}
+      {parts[0]}
+      {parts[1] && <span><br/><span style={{color:"#888",fontSize:11,fontStyle:"normal"}}>{parts[1]}</span></span>}
+    </span>
+  );
+}
+
+function DetailFooter({jobs, tab}) {
+  const showJobs = tab==="done"
+    ? jobs.filter(j=>j.status==="done")
+    : tab==="etc"
+      ? jobs.filter(j=>j.status!=="done")
+      : jobs.filter(j=>j.status==="done");
+  const totQty = showJobs.reduce((s,j)=>s+Number(j.qty),0);
+  const totAmt = showJobs.reduce((s,j)=>s+Number(j.qty)*Number(j.price),0);
+  const label = tab==="etc" ? "미완료 합계" : "완료 합계";
+  const color = tab==="etc" ? "#92600A" : "#3B6D11";
+  const bg    = tab==="etc" ? "#FFFBEA" : "#f3fae8";
+  return (
+    <tfoot>
+      <tr style={{background:bg,fontWeight:600,borderTop:"1px solid #e0e0dc"}}>
+        <td colSpan={2} style={{padding:"8px 10px",color}}>{label}</td>
+        <td style={{padding:"8px 10px",textAlign:"center",color}}>{totQty}</td>
+        <td style={{padding:"8px 10px"}}></td>
+        <td style={{padding:"8px 10px",textAlign:"right",color}}>{fmt(totAmt)}원</td>
+        <td colSpan={2}></td>
+      </tr>
+    </tfoot>
+  );
+}
+
 export default function App() {
   const [role, setRole] = useState(null);
   const [userName, setUserName] = useState("");
@@ -734,32 +771,26 @@ export default function App() {
                 <td style={{padding:"9px 12px",textAlign:"right",fontSize:12}}>
                   {j.price ? <strong>{fmt(Number(j.qty)*Number(j.price))}원</strong> : <span style={{color:"#bbb"}}>—</span>}
                 </td>
-                <td style={{padding:"9px 12px",fontSize:12,color:j.status==="done"?"#A32D2D":j.status==="partial"?"#92600A":"#1a1a1a",textDecoration:j.status==="done"?"line-through":"none"}}>
-                  {(() => {
-                    const parts = (j.date||"").split(" ");
-                    const isDateEdited = (j.editedFields||[]).includes("date");
-                    const display = parts.length >= 2
-                      ? <span style={{fontStyle:isDateEdited?"italic":"normal"}}>
-                          {isDateEdited && <span title="수정됨" style={{color:"#7C3AED",fontSize:9,marginRight:3}}>●</span>}
-                          {parts[0]}<br/>
-                          <span style={{color:"#888",fontSize:11}}>{parts[1]}</span>
-                        </span>
-                      : <span style={{fontStyle:isDateEdited?"italic":"normal"}}>{j.date||"—"}</span>;
-                    return canEdit(j)
-                      ? <span style={S.editable} onClick={()=>openModal(j,"date")} title="클릭하여 날짜 수정">{display}</span>
-                      : display;
-                  })()}
+                <td style={{padding:"9px 12px",fontSize:12}}>
+                  {canEdit(j)
+                    ? <span style={S.editable} onClick={()=>openModal(j,"date")} title="날짜 수정">
+                        <DateCell dateStr={j.date} edited={(j.editedFields||[]).includes("date")}
+                          color={j.status==="done"?"#A32D2D":j.status==="partial"?"#92600A":"#1a1a1a"}
+                          textDeco={j.status==="done"?"line-through":"none"}/>
+                      </span>
+                    : <DateCell dateStr={j.date} edited={(j.editedFields||[]).includes("date")}
+                        color={j.status==="done"?"#A32D2D":j.status==="partial"?"#92600A":"#1a1a1a"}
+                        textDeco={j.status==="done"?"line-through":"none"}/>
+                  }
                 </td>
                 <td style={{padding:"9px 12px",fontSize:12}}>
-                  {j.doneDate ? (() => {
-                    const dp = (j.doneDate||"").split(" ");
-                    const dateDisplay = dp.length>=2
-                      ? <span>{dp[0]}<br/><span style={{fontSize:11,color:"#888"}}>{dp[1]}</span></span>
-                      : <span>{j.doneDate}</span>;
-                    return role==="master"
-                      ? <span style={{...S.editable,color:"#3B6D11"}} onClick={()=>openModal(j,"doneDate")} title="완료일 수정">{dateDisplay}</span>
-                      : <span style={{color:"#3B6D11"}}>{dateDisplay}</span>;
-                  })() : <span style={{color:"#bbb"}}>—</span>}
+                  {j.doneDate
+                    ? (role==="master"
+                      ? <span style={{...S.editable,color:"#3B6D11"}} onClick={()=>openModal(j,"doneDate")} title="완료일 수정">
+                          <DateCell dateStr={j.doneDate} color="#3B6D11"/>
+                        </span>
+                      : <DateCell dateStr={j.doneDate} color="#3B6D11"/>)
+                    : <span style={{color:"#bbb"}}>—</span>}
                 </td>
                 <td style={{padding:"9px 12px",textAlign:"center"}}><Pill j={j}/></td>
                 <td style={{padding:"9px 12px",textAlign:"center"}}><ActBtns j={j}/></td>
@@ -952,29 +983,7 @@ export default function App() {
                     })
                   }
                 </tbody>
-                <tfoot>
-                  {(()=>{
-                    const showJobs = detailTab==="done"
-                      ? workerDetail.jobs.filter(j=>j.status==="done")
-                      : detailTab==="etc"
-                        ? workerDetail.jobs.filter(j=>j.status!=="done")
-                        : workerDetail.jobs.filter(j=>j.status==="done");
-                    const totQty = showJobs.reduce((s,j)=>s+Number(j.qty),0);
-                    const totAmt = showJobs.reduce((s,j)=>s+Number(j.qty)*Number(j.price),0);
-                    const label = detailTab==="etc" ? "미완료 합계" : "완료 합계";
-                    const color = detailTab==="etc" ? "#92600A" : "#3B6D11";
-                    const bg    = detailTab==="etc" ? "#FFFBEA" : "#f3fae8";
-                    return (
-                      <tr style={{background:bg,fontWeight:600,borderTop:"1px solid #e0e0dc"}}>
-                        <td colSpan={2} style={{padding:"8px 10px",color}}>{label}</td>
-                        <td style={{padding:"8px 10px",textAlign:"center",color}}>{totQty}</td>
-                        <td style={{padding:"8px 10px"}}></td>
-                        <td style={{padding:"8px 10px",textAlign:"right",color}}>{fmt(totAmt)}원</td>
-                        <td colSpan={2}></td>
-                      </tr>
-                    );
-                  })()}
-                </tfoot>
+                <DetailFooter jobs={workerDetail.jobs} tab={detailTab}/>
               </table>
             </div>
           </div>
