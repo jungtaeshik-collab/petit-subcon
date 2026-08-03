@@ -417,7 +417,9 @@ export default function App() {
     const from = new Date(srchFrom), to = new Date(srchTo); to.setHours(23,59,59);
     const wf = srchWorker.trim().toLowerCase();
     const inRange = jobs.filter(j => {
-      const d = toDateObj(typeof j.date === "string" ? j.date : "");
+      // 완료일(doneDate) 기준으로 조회
+      const dateStr = typeof j.doneDate === "string" ? j.doneDate : "";
+      const d = toDateObj(dateStr);
       if (!d || d < from || d > to) return false;
       const wRaw3 = String(j.worker||'').trim();
       const wKey3 = wRaw3.startsWith('원광') ? '원광' : wRaw3.startsWith('자활') ? '자활' : wRaw3.startsWith('시립') ? '시립' : wRaw3.slice(0,3);
