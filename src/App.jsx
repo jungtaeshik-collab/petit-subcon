@@ -92,6 +92,7 @@ function DetailFooter({jobs, tab}) {
 
 export default function App() {
   const [role, setRole] = useState(null);
+  const [autoLogging, setAutoLogging] = useState(true);
   const [userName, setUserName] = useState("");
   const [pw, setPw] = useState("");
   const [pwErr, setPwErr] = useState(false);
@@ -138,6 +139,19 @@ export default function App() {
   const refSrchFrom   = useRef(null);
   const refSrchTo     = useRef(null);
   const refSrchWorker = useRef(null);
+
+  // ── 자동 로그인 ──────────────────────────────────────
+  useEffect(() => {
+    const savedPw = localStorage.getItem('petit_saved_pw');
+    if (savedPw) {
+      const user = USERS[savedPw.trim()];
+      if (user) {
+        setRole(user.role);
+        setUserName(user.name);
+      }
+    }
+    setAutoLogging(false);
+  }, []);
 
   // ── 활동 로그 저장 ────────────────────────────────────
   const logActivity = async (action, detail) => {
@@ -209,7 +223,9 @@ export default function App() {
     if (!user) { setPwErr(true); setPw(""); return; }
     setRole(user.role);
     setUserName(user.name);
-    setPwErr(false); setPw("");
+    setPwErr(false);
+    localStorage.setItem('petit_saved_pw', pw.trim());
+    setPw("");
     // 접속 이력 Firebase에 저장
     try {
       const logRef = ref(db, "access_logs");
@@ -503,6 +519,15 @@ export default function App() {
   const reportRows = report ? Object.entries(report.map).sort((a,b)=>a[0].localeCompare(b[0],"ko")) : [];
 
   // ── 로그인 화면 ───────────────────────────────────────
+  if (autoLogging) return (
+    <div style={{...S.loginOverlay}}>
+      <div style={{textAlign:"center",color:"#888",fontSize:14}}>
+        <img src={LOGO} alt="Petit" style={{display:"block",margin:"0 auto 20px",height:80,objectFit:"contain"}}/>
+        로딩 중...
+      </div>
+    </div>
+  );
+
   if (!role) return (
     <div style={S.loginOverlay}>
       <div style={S.loginBox}>
@@ -540,7 +565,7 @@ export default function App() {
               👁 접속현황
             </button>
           )}
-          <button style={S.logoutBtn} onClick={()=>{setRole(null);setUserName("");setJobs([]);setShowLog(false);}}>로그아웃</button>
+          <button style={S.logoutBtn} onClick={()=>{setRole(null);setUserName("");setJobs([]);setShowLog(false);localStorage.removeItem('petit_saved_pw');}}>로그아웃</button>
         </div>
       </div>
 
