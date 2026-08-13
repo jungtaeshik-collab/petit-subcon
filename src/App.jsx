@@ -71,19 +71,19 @@ function DetailFooter({jobs, tab}) {
     ? jobs.filter(j=>j.status==="done")
     : tab==="etc"
       ? jobs.filter(j=>j.status!=="done")
-      : jobs.filter(j=>j.status==="done");
-  const totQty = showJobs.reduce((s,j)=>s+Number(j.qty),0);
-  const totAmt = showJobs.reduce((s,j)=>s+Number(j.qty)*Number(j.price),0);
-  const label = tab==="etc" ? "미완료 합계" : "완료 합계";
-  const color = tab==="etc" ? "#92600A" : "#3B6D11";
-  const bg    = tab==="etc" ? "#FFFBEA" : "#f3fae8";
+      : jobs; // 전체탭은 전체 합계
+  const totQty = showJobs.reduce((s,j)=>s+Number(j.qty||0),0);
+  const totAmt = showJobs.reduce((s,j)=>s+(Number(j.qty||0)*Number(j.price||0)),0);
+  const label = tab==="etc" ? "미완료·일부완료 합계" : tab==="done" ? "완료 합계" : "전체 합계";
+  const color = tab==="etc" ? "#92600A" : tab==="done" ? "#3B6D11" : "#1a1a1a";
+  const bg    = tab==="etc" ? "#FFFBEA" : tab==="done" ? "#f3fae8" : "#f0efeb";
   return (
     <tfoot>
       <tr style={{background:bg,fontWeight:600,borderTop:"1px solid #e0e0dc"}}>
-        <td colSpan={2} style={{padding:"8px 10px",color}}>{label}</td>
+        <td colSpan={2} style={{padding:"8px 10px",color}}>{label} ({showJobs.length}건)</td>
         <td style={{padding:"8px 10px",textAlign:"center",color}}>{totQty}</td>
         <td style={{padding:"8px 10px"}}></td>
-        <td style={{padding:"8px 10px",textAlign:"right",color}}>{fmt(totAmt)}원</td>
+        <td style={{padding:"8px 10px",textAlign:"right",color}}>{totAmt>0?fmt(totAmt)+"원":"—"}</td>
         <td colSpan={2}></td>
       </tr>
     </tfoot>
@@ -978,7 +978,7 @@ export default function App() {
                     <th style={{padding:"8px 10px",textAlign:"center",fontWeight:500,color:"#888",fontSize:11,whiteSpace:"nowrap"}}>수량</th>
                     <th style={{padding:"8px 10px",textAlign:"right",fontWeight:500,color:"#888",fontSize:11,whiteSpace:"nowrap"}}>단가</th>
                     <th style={{padding:"8px 10px",textAlign:"right",fontWeight:500,color:"#888",fontSize:11,whiteSpace:"nowrap"}}>금액</th>
-                    <th style={{padding:"8px 10px",textAlign:"left",fontWeight:500,color:"#888",fontSize:11,whiteSpace:"nowrap"}}>지급일</th>
+                    <th style={{padding:"8px 10px",textAlign:"left",fontWeight:500,color:"#888",fontSize:11,whiteSpace:"nowrap"}}>완료일</th>
                     <th style={{padding:"8px 10px",textAlign:"center",fontWeight:500,color:"#888",fontSize:11,whiteSpace:"nowrap"}}>상태</th>
                   </tr>
                 </thead>
@@ -1001,7 +1001,7 @@ export default function App() {
                           <td style={{padding:"7px 10px",textAlign:"right",fontWeight:isDone?600:400,color:isDone?"#3B6D11":"#555"}}>
                             {amt>0?fmt(amt)+"원":"—"}
                           </td>
-                          <td style={{padding:"7px 10px",color:"#888",whiteSpace:"nowrap",fontSize:11}}>{(j.date||"").split(" ")[0]}</td>
+                          <td style={{padding:"7px 10px",color:"#888",whiteSpace:"nowrap",fontSize:11}}>{(j.doneDate||"").split(" ")[0] || "—"}</td>
                           <td style={{padding:"7px 10px",textAlign:"center"}}>
                             {isDone
                               ? <span style={{fontSize:10,padding:"2px 6px",borderRadius:20,background:"#C0DD97",color:"#27500A",fontWeight:500}}>완료</span>
