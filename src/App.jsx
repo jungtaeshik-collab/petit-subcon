@@ -118,6 +118,7 @@ export default function App() {
   const [srchFrom, setSrchFrom] = useState(now.getFullYear()+"-"+pad(now.getMonth()+1)+"-01");
   const [srchTo, setSrchTo]     = useState(now.getFullYear()+"-"+pad(now.getMonth()+1)+"-"+pad(now.getDate()));
   const [srchWorker, setSrchWorker] = useState("");
+  const [srchMonth, setSrchMonth] = useState(""); // 월별 검색 YYYY-MM
   const [report, setReport] = useState(null);
   const [workerDetail, setWorkerDetail] = useState(null); // {name, jobs[]}
   const [detailTab, setDetailTab] = useState('all'); // all | done | etc
@@ -605,21 +606,21 @@ export default function App() {
         const nowD = new Date();
         const thisMonth = String(nowD.getFullYear()).slice(2)+"."+pad(nowD.getMonth()+1);
 
-        // 오늘 완료 건 (doneDate 기준)
-        const todayJobs = jobs.filter(j=>String(j.doneDate||"").startsWith(todayS));
+        // 오늘 지급(등록) 건 - date 기준
+        const todayJobs = jobs.filter(j=>String(j.date||"").startsWith(todayS));
         const todayWorkers = new Set(todayJobs.map(j=>String(j.worker||"").trim().slice(0,3))).size;
 
-        // 이달 완료 건 (doneDate 기준)
+        // 이달 완료 건 - doneDate 기준
         const monthJobs = jobs.filter(j=>String(j.doneDate||"").startsWith(thisMonth));
         const monthWorkers = new Set(monthJobs.map(j=>String(j.worker||"").trim().slice(0,3))).size;
 
         return (
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:12}}>
             {[
-              {label:"오늘 작업자", value:todayWorkers+"명", color:"#1a56db", bg:"#E8F0FE"},
-              {label:"오늘 작업건수", value:todayJobs.length+"건", color:"#1a56db", bg:"#E8F0FE"},
-              {label:"이달 작업자", value:monthWorkers+"명", color:"#3B6D11", bg:"#EAF3DE"},
-              {label:"이달 작업건수", value:monthJobs.length+"건", color:"#3B6D11", bg:"#EAF3DE"},
+              {label:"오늘 지급 작업자", value:todayWorkers+"명", color:"#1a56db", bg:"#E8F0FE"},
+              {label:"오늘 지급 건수", value:todayJobs.length+"건", color:"#1a56db", bg:"#E8F0FE"},
+              {label:"이달 완료 작업자", value:monthWorkers+"명", color:"#3B6D11", bg:"#EAF3DE"},
+              {label:"이달 완료 건수", value:monthJobs.length+"건", color:"#3B6D11", bg:"#EAF3DE"},
             ].map(({label,value,color,bg})=>(
               <div key={label} style={{background:bg,borderRadius:12,padding:"14px 12px",textAlign:"center"}}>
                 <p style={{fontSize:11,color,marginBottom:6,fontWeight:500}}>{label}</p>
@@ -637,6 +638,18 @@ export default function App() {
           <div><label style={S.lbl}>시작일</label><input ref={refSrchFrom} style={S.inp} type="date" value={srchFrom} onChange={e=>setSrchFrom(e.target.value)} onKeyDown={e=>e.key==="Enter"&&refSrchTo.current?.focus()}/></div>
           <div><label style={S.lbl}>종료일</label><input ref={refSrchTo} style={S.inp} type="date" value={srchTo} onChange={e=>setSrchTo(e.target.value)} onKeyDown={e=>e.key==="Enter"&&refSrchWorker.current?.focus()}/></div>
           <div><label style={S.lbl}>작업자(비우면 전체)</label><input ref={refSrchWorker} style={S.inp} type="text" placeholder="이름" value={srchWorker} onChange={e=>setSrchWorker(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doSearch()}/></div>
+          <div>
+            <label style={S.lbl}>월별 검색</label>
+            <input style={S.inp} type="month" value={srchMonth} onChange={e=>{
+              setSrchMonth(e.target.value);
+              if(e.target.value){
+                const [y,m] = e.target.value.split("-");
+                const lastDay = new Date(+y,+m,0).getDate();
+                setSrchFrom(e.target.value+"-01");
+                setSrchTo(e.target.value+"-"+String(lastDay).padStart(2,"0"));
+              }
+            }}/>
+          </div>
           <div style={{display:"flex",alignItems:"flex-end"}}>
             <button style={S.btnSrch} onClick={doSearch}>📊 검색</button>
           </div>
@@ -1113,7 +1126,7 @@ const S = {
   lbl:         { fontSize:12, color:"#888", display:"block", marginBottom:4 },
   inp:         { width:"100%", height:40, border:"0.5px solid #ccc", borderRadius:8, padding:"0 10px", fontSize:14, fontFamily:"inherit", outline:"none", background:"#fafaf8", WebkitAppearance:"none", appearance:"none", boxSizing:"border-box" },
   formGrid:    { display:"grid", gap:8, gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))" },
-  srchGrid:    { display:"grid", gap:8, gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))" },
+  srchGrid:    { display:"grid", gap:8, gridTemplateColumns:"repeat(auto-fit,minmax(110px,1fr))" },
   btnAdd:      { height:40, padding:"0 18px", border:"none", borderRadius:8, background:"#1a1a1a", color:"#fff", fontSize:14, cursor:"pointer", whiteSpace:"nowrap", width:"100%" },
   btnSrch:     { height:40, padding:"0 18px", border:"none", borderRadius:8, background:"#2D6A4F", color:"#fff", fontSize:14, cursor:"pointer", whiteSpace:"nowrap", width:"100%" },
   btnExcel:    { height:40, padding:"0 18px", border:"0.5px solid #2D6A4F", borderRadius:8, background:"transparent", color:"#2D6A4F", fontSize:14, cursor:"pointer", whiteSpace:"nowrap" },
