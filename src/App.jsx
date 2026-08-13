@@ -606,11 +606,11 @@ export default function App() {
         const thisMonth = String(nowD.getFullYear()).slice(2)+"."+pad(nowD.getMonth()+1);
 
         // 오늘 완료 건 (doneDate 기준)
-        const todayJobs = jobs.filter(j=>(j.doneDate||"").startsWith(todayS));
+        const todayJobs = jobs.filter(j=>String(j.doneDate||"").startsWith(todayS));
         const todayWorkers = new Set(todayJobs.map(j=>String(j.worker||"").trim().slice(0,3))).size;
 
         // 이달 완료 건 (doneDate 기준)
-        const monthJobs = jobs.filter(j=>(j.doneDate||"").startsWith(thisMonth));
+        const monthJobs = jobs.filter(j=>String(j.doneDate||"").startsWith(thisMonth));
         const monthWorkers = new Set(monthJobs.map(j=>String(j.worker||"").trim().slice(0,3))).size;
 
         return (
