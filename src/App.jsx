@@ -599,6 +599,37 @@ export default function App() {
         {uploadMsg && <p style={{fontSize:12,marginTop:8,color:uploadMsg.startsWith("✅")?"#3B6D11":"#A32D2D"}}>{uploadMsg}</p>}
       </div>
 
+      {/* 오늘/이달 통계 - 정태식만 */}
+      {userName === "정태식" && (() => {
+        const todayS = todayStr().split(" ")[0]; // YY.MM.DD
+        const nowD = new Date();
+        const thisMonth = String(nowD.getFullYear()).slice(2)+"."+pad(nowD.getMonth()+1);
+
+        // 오늘 완료 건 (doneDate 기준)
+        const todayJobs = jobs.filter(j=>(j.doneDate||"").startsWith(todayS));
+        const todayWorkers = new Set(todayJobs.map(j=>String(j.worker||"").trim().slice(0,3))).size;
+
+        // 이달 완료 건 (doneDate 기준)
+        const monthJobs = jobs.filter(j=>(j.doneDate||"").startsWith(thisMonth));
+        const monthWorkers = new Set(monthJobs.map(j=>String(j.worker||"").trim().slice(0,3))).size;
+
+        return (
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:12}}>
+            {[
+              {label:"오늘 작업자", value:todayWorkers+"명", color:"#1a56db", bg:"#E8F0FE"},
+              {label:"오늘 작업건수", value:todayJobs.length+"건", color:"#1a56db", bg:"#E8F0FE"},
+              {label:"이달 작업자", value:monthWorkers+"명", color:"#3B6D11", bg:"#EAF3DE"},
+              {label:"이달 작업건수", value:monthJobs.length+"건", color:"#3B6D11", bg:"#EAF3DE"},
+            ].map(({label,value,color,bg})=>(
+              <div key={label} style={{background:bg,borderRadius:12,padding:"14px 12px",textAlign:"center"}}>
+                <p style={{fontSize:11,color,marginBottom:6,fontWeight:500}}>{label}</p>
+                <p style={{fontSize:22,fontWeight:700,color}}>{value}</p>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* 검색 */}
       <div style={S.card}>
         <p style={S.secTitle}>🔍 기간별 작업자 조회</p>
