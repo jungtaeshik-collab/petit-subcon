@@ -434,9 +434,11 @@ export default function App() {
     const from = new Date(srchFrom), to = new Date(srchTo); to.setHours(23,59,59);
     const wf = srchWorker.trim().toLowerCase();
     const inRange = jobs.filter(j => {
-      // 완료일(doneDate) 기준으로 조회
-      const dateStr = typeof j.doneDate === "string" ? j.doneDate : "";
-      const d = toDateObj(dateStr);
+      // 완료 건은 doneDate 기준, 미완료/일부완료는 date(지급일) 기준
+      const rawDate = j.status === "done"
+        ? (typeof j.doneDate === "string" ? j.doneDate : "")
+        : (typeof j.date === "string" ? j.date : "");
+      const d = toDateObj(rawDate);
       if (!d || d < from || d > to) return false;
       const wRaw3 = String(j.worker||'').trim();
       const wKey3 = wRaw3.startsWith('원광') ? '원광' : wRaw3.startsWith('자활') ? '자활' : wRaw3.startsWith('시립') ? '시립' : wRaw3.slice(0,3);
@@ -479,7 +481,10 @@ export default function App() {
   const filtered = byStatus.filter(j=>{
     if(creatorFilter!=="all" && j.createdBy!==creatorFilter) return false;
     if(searchFrom || searchTo) {
-      const rawDate = typeof j.date === "string" ? j.date : "";
+      // 완료 건은 doneDate, 미완료/일부완료는 date 기준
+      const rawDate = j.status === "done"
+        ? (typeof j.doneDate === "string" ? j.doneDate : "")
+        : (typeof j.date === "string" ? j.date : "");
       const d = toDateObj(rawDate.split(" ")[0]);
       if(searchFrom){ const f=new Date(searchFrom); if(!d||d<f) return false; }
       if(searchTo)  { const t=new Date(searchTo); t.setHours(23,59,59); if(!d||d>t) return false; }
@@ -739,8 +744,9 @@ export default function App() {
           </button>
         )}
         {(searchFrom||searchTo||searchItem) && (
-          <span style={{fontSize:12,color:"#1a56db",alignSelf:"flex-end",paddingBottom:4,fontWeight:500}}>
-            {filtered.length}건 검색됨
+          <span style={{fontSize:12,color:"#1a56db",alignSelf:"flex-end",paddingBottom:4,fontWeight:500,display:"flex",flexDirection:"column",gap:2}}>
+            <span>{filtered.length}건 검색됨</span>
+            {searchItem && <span style={{color:"#3B6D11"}}>총 수량: {fmt(filtered.reduce((s,j)=>s+Number(j.qty||0),0))}</span>}
           </span>
         )}
       </div>
