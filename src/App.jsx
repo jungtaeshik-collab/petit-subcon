@@ -712,13 +712,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 탭 */}
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-        {[["all","전체"],["pending","미완료"],["partial","일부완료"],["done","완료"]].map(([k,l])=>(
-          <button key={k} onClick={()=>{setTab(k);setPage(1);}}
-            style={tab===k ? S.tabOn : S.tabOff}>{l}</button>
-        ))}
-      </div>
+
 
       {/* 날짜기간+품목 검색 */}
       <div style={{background:"#fff",border:"0.5px solid #e0e0dc",borderRadius:12,padding:"12px 16px",marginBottom:12,display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
@@ -759,6 +753,14 @@ export default function App() {
         {creatorList.map(name=>(
           <button key={name} onClick={()=>{setCreatorFilter(name);setPage(1);}}
             style={creatorFilter===name ? S.tabOn : S.tabOff}>{name}</button>
+        ))}
+      </div>
+
+      {/* 상태 탭 */}
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
+        {[["all","전체"],["pending","미완료"],["partial","일부완료"],["done","완료"]].map(([k,l])=>(
+          <button key={k} onClick={()=>{setTab(k);setPage(1);}}
+            style={tab===k ? S.tabOn : S.tabOff}>{l}</button>
         ))}
       </div>
 
