@@ -756,17 +756,20 @@ export default function App() {
         ))}
       </div>
 
-      {/* 상태 탭 */}
-      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
-        {[["all","전체"],["pending","미완료"],["partial","일부완료"],["done","완료"]].map(([k,l])=>(
-          <button key={k} onClick={()=>{setTab(k);setPage(1);}}
-            style={tab===k ? S.tabOn : S.tabOff}>{l}</button>
-        ))}
-      </div>
+      {/* 상태 탭 + 페이지네이션 같은 줄 */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:6,marginBottom:12}}>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {[["all","전체"],["pending","미완료"],["partial","일부완료"],["done","완료"]].map(([k,l])=>(
+            <button key={k} onClick={()=>{setTab(k);setPage(1);}}
+              style={tab===k
+                ? {...S.tabOn, fontSize:10, padding:"5px 12px"}
+                : {...S.tabOff, fontSize:10, padding:"5px 12px"}}>{l}</button>
+          ))}
+        </div>
 
-      {/* 페이지네이션 — 테이블 위 */}
-      {filtered.length > PAGE_SIZE && (
-        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:4,padding:"10px 0 8px",flexWrap:"wrap"}}>
+        {/* 페이지네이션 — 오른쪽 */}
+        {filtered.length > PAGE_SIZE && (
+        <div style={{display:"flex",alignItems:"center",gap:4,flexWrap:"wrap",marginLeft:"auto"}}>
           <button onClick={()=>setPage(1)} disabled={page===1}
             style={{...S.pgBtn,opacity:page===1?0.3:1}}>«</button>
           <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1}
@@ -794,7 +797,7 @@ export default function App() {
             style={{...S.pgBtn,opacity:page===totalPages?0.3:1}}>›</button>
           <button onClick={()=>setPage(totalPages)} disabled={page===totalPages}
             style={{...S.pgBtn,opacity:page===totalPages?0.3:1}}>»</button>
-          <span style={{fontSize:12,color:"#888",marginLeft:8,display:"flex",alignItems:"center",gap:4}}>
+          <span style={{fontSize:12,color:"#888",marginLeft:4,display:"flex",alignItems:"center",gap:4}}>
             <input type="number" min={1} max={totalPages}
               defaultValue={page} key={page}
               onKeyDown={e=>{if(e.key==="Enter"){const v=parseInt(e.target.value);if(v>=1&&v<=totalPages)setPage(v);}}}
@@ -803,7 +806,8 @@ export default function App() {
             <span>/ {totalPages}</span>
           </span>
         </div>
-      )}
+        )}
+      </div>
 
       {/* 테이블 */}
       <p style={{fontSize:11,color:"#aaa",textAlign:"right",marginBottom:4}}>← 좌우로 밀어서 확인하세요</p>
