@@ -93,6 +93,9 @@ function DetailFooter({jobs, tab}) {
 export default function App() {
   const [role, setRole] = useState(null);
   const [autoLogging, setAutoLogging] = useState(true);
+  const [notice, setNotice] = useState(null); // 현재 공지 내용
+  const [showNotice, setShowNotice] = useState(false); // 공지 팝업 표시 여부
+  const [noticeInput, setNoticeInput] = useState(""); // 정태식이 입력하는 공지
   const [userName, setUserName] = useState("");
   const [pw, setPw] = useState("");
   const [pwErr, setPwErr] = useState(false);
@@ -154,6 +157,28 @@ export default function App() {
     setAutoLogging(false);
   }, []);
 
+  // ── 공지사항 저장 (정태식만) ────────────────────────────
+  const saveNotice = async () => {
+    if (!noticeInput.trim()) return;
+    try {
+      await update(ref(db, "notice"), {
+        content: noticeInput.trim(),
+        updatedAt: Date.now(),
+        updatedBy: "정태식"
+      });
+      setNoticeInput("");
+      alert("공지가 저장됐어요! 직원들이 다음 로그인 시 확인합니다.");
+    } catch(e) { alert("저장 실패: "+e.message); }
+  };
+
+  const clearNotice = async () => {
+    if (!confirm("공지를 삭제하시겠습니까?")) return;
+    try {
+      await update(ref(db, "notice"), { content: "", updatedAt: Date.now() });
+      setNoticeInput("");
+    } catch(e) {}
+  };
+
   // ── 활동 로그 저장 ────────────────────────────────────
   const logActivity = async (action, detail) => {
     try {
@@ -169,6 +194,21 @@ export default function App() {
   };
 
   // ── 접속 이력 불러오기 (정태식만) ───────────────────────
+  // ── 공지사항 로드 ────────────────────────────────────
+  const loadNotice = async () => {
+    try {
+      const noticeRef = ref(db, "notice");
+      onValue(noticeRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.content) {
+          setNotice(data);
+        } else {
+          setNotice(null);
+        }
+      }, { onlyOnce: false });
+    } catch(e) {}
+  };
+
   const loadAccessLogs = async () => {
     try {
       const logRef = ref(db, "access_logs");
@@ -201,6 +241,7 @@ export default function App() {
   useEffect(() => {
     if (!role) return;
     if (userName === "정태식") loadAccessLogs();
+    loadNotice();
     const jobsRef = ref(db, "jobs");
     const unsub = onValue(jobsRef, (snapshot) => {
       const data = snapshot.val();
@@ -217,6 +258,16 @@ export default function App() {
     });
     return () => unsub();
   }, [role]);
+
+  // 공지 변경 시 일반 관리자 팝업
+  useEffect(() => {
+    if (!role || !notice || !notice.content) return;
+    if (userName === "정태식") return; // 마스터는 팝업 안 뜸
+    // 다시보지않기 체크
+    const hiddenKey = 'notice_hidden_' + (notice.updatedAt||"");
+    if (localStorage.getItem(hiddenKey)) return;
+    setShowNotice(true);
+  }, [notice, role]);
 
   // ── 로그인 ────────────────────────────────────────────
   const doLogin = async () => {
@@ -615,6 +666,12 @@ export default function App() {
               👁 접속현황
             </button>
           )}
+          {userName === "정태식" && (
+            <button style={{...S.logoutBtn, color:"#E67E22", borderColor:"#E67E22"}}
+              onClick={()=>setShowNotice(true)}>
+              📢 공지관리
+            </button>
+          )}
           <button style={S.logoutBtn} onClick={()=>{setRole(null);setUserName("");setJobs([]);setShowLog(false);localStorage.removeItem('petit_saved_pw');}}>로그아웃</button>
         </div>
       </div>
@@ -953,6 +1010,73 @@ export default function App() {
         <span style={{color:"#3B6D11",display:"flex",alignItems:"center",gap:4}}><span style={{width:9,height:9,borderRadius:"50%",background:"#C0DD97",display:"inline-block"}}/> 완료</span>
         <span style={{color:"#7C3AED",display:"flex",alignItems:"center",gap:4,marginLeft:8}}><span style={{fontSize:9}}>●</span> <em>수정된 항목</em></span>
       </div>
+
+      {/* 공지사항 모달 */}
+      {showNotice && (
+        <div style={S.modalBg} onClick={e=>e.target===e.currentTarget&&setShowNotice(false)}>
+          <div style={{...S.modalBox, width:"min(440px,94vw)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <h3 style={{fontSize:15,fontWeight:600}}>
+                {userName==="정태식" ? "📢 공지사항 관리" : "📢 전달 사항"}
+              </h3>
+              <button style={S.btnCancel} onClick={()=>setShowNotice(false)}>✕</button>
+            </div>
+
+            {userName === "정태식" ? (
+              /* 정태식 - 공지 작성/수정 */
+              <div>
+                <label style={{fontSize:12,color:"#888",display:"block",marginBottom:6}}>
+                  공지 내용 (저장하면 직원들이 다음 로그인 시 확인)
+                </label>
+                <textarea
+                  value={noticeInput || (notice?.content||"")}
+                  onChange={e=>setNoticeInput(e.target.value)}
+                  placeholder="전달할 내용을 입력하세요..."
+                  style={{width:"100%",height:140,border:"0.5px solid #ccc",borderRadius:8,
+                    padding:"10px 12px",fontSize:14,fontFamily:"inherit",outline:"none",
+                    background:"#fafaf8",resize:"vertical",boxSizing:"border-box",marginBottom:12}}
+                />
+                {notice?.updatedAt && (
+                  <p style={{fontSize:11,color:"#aaa",marginBottom:10}}>
+                    마지막 수정: {new Date(notice.updatedAt).toLocaleString("ko-KR")}
+                  </p>
+                )}
+                <div style={{display:"flex",gap:8}}>
+                  <button style={S.btnSave} onClick={saveNotice}>💾 저장</button>
+                  <button style={{...S.btnCancel,flex:1}} onClick={clearNotice}>🗑 공지 삭제</button>
+                </div>
+              </div>
+            ) : (
+              /* 일반 직원 - 공지 읽기 */
+              <div>
+                {notice?.content
+                  ? <div style={{background:"#FFFBEA",border:"0.5px solid #FAE588",borderRadius:10,
+                      padding:"16px",fontSize:14,lineHeight:1.7,whiteSpace:"pre-wrap",marginBottom:16,
+                      minHeight:80}}>
+                      {notice.content}
+                    </div>
+                  : <p style={{color:"#aaa",fontSize:13,textAlign:"center",padding:"24px 0"}}>
+                      현재 전달 사항이 없습니다.
+                    </p>
+                }
+                {notice?.updatedAt && (
+                  <p style={{fontSize:11,color:"#aaa",marginBottom:14}}>
+                    등록: {new Date(notice.updatedAt).toLocaleString("ko-KR")}
+                  </p>
+                )}
+                <div style={{display:"flex",gap:8}}>
+                  <button style={S.btnSave} onClick={()=>setShowNotice(false)}>확인</button>
+                  <button style={{...S.btnCancel,flex:1}} onClick={()=>{
+                    const hiddenKey = 'notice_hidden_' + (notice?.updatedAt||"");
+                    localStorage.setItem(hiddenKey, "1");
+                    setShowNotice(false);
+                  }}>다시 보지 않기</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 접속/활동 이력 모달 */}
       {showLog && (
