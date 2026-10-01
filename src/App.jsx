@@ -428,6 +428,50 @@ export default function App() {
     setModal(null);
   };
 
+  // ── 엑셀 다운로드 ───────────────────────────────────────
+  const downloadExcel = () => {
+    const statusLabel = s => s==="done"?"완료":s==="partial"?"일부완료":"미완료";
+    const rows = filtered.map((j,i) => ({
+      "No": i+1,
+      "품목": j.item||"",
+      "작업자": j.worker||"",
+      "수량": Number(j.qty||0),
+      "단가(원)": Number(j.price||0),
+      "금액(원)": Number(j.qty||0)*Number(j.price||0),
+      "지급일": (j.date||"").split(" ")[0]||"",
+      "지급시간": (j.date||"").split(" ")[1]||"",
+      "완료일": (j.doneDate||"").split(" ")[0]||"",
+      "완료시간": (j.doneDate||"").split(" ")[1]||"",
+      "상태": statusLabel(j.status),
+      "작성자": j.createdBy||"",
+    }));
+
+    // 합계 행
+    const totQty = rows.reduce((s,r)=>s+r["수량"],0);
+    const totAmt = rows.reduce((s,r)=>s+r["금액(원)"],0);
+    rows.push({
+      "No":"합계", "품목":"", "작업자":"",
+      "수량":totQty, "단가(원)":"", "금액(원)":totAmt,
+      "지급일":"", "지급시간":"", "완료일":"", "완료시간":"",
+      "상태":"", "작성자":""
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+
+    // 컬럼 너비 설정
+    ws['!cols'] = [
+      {wch:5},{wch:20},{wch:10},{wch:8},{wch:10},{wch:12},
+      {wch:10},{wch:8},{wch:10},{wch:8},{wch:8},{wch:8}
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "작업현황");
+
+    const now = new Date();
+    const fname = `하청작업_${String(now.getFullYear()).slice(2)}${pad(now.getMonth()+1)}${pad(now.getDate())}.xlsx`;
+    XLSX.writeFile(wb, fname);
+  };
+
   // ── 검색 ─────────────────────────────────────────────
   const doSearch = () => {
     if (!srchFrom || !srchTo) { alert("날짜를 선택해 주세요."); return; }
@@ -743,6 +787,11 @@ export default function App() {
             ✕ 초기화
           </button>
         )}
+        <button onClick={downloadExcel}
+          style={{height:36,padding:"0 14px",border:"0.5px solid #2D6A4F",borderRadius:8,background:"transparent",color:"#2D6A4F",fontSize:13,cursor:"pointer",fontFamily:"inherit",alignSelf:"flex-end",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:4}}>
+          📥 엑셀 다운로드
+          {(searchFrom||searchTo||searchItem) && <span style={{fontSize:11,color:"#3B6D11"}}>({filtered.length}건)</span>}
+        </button>
         {(searchFrom||searchTo||searchItem) && (
           <span style={{fontSize:12,color:"#1a56db",alignSelf:"flex-end",paddingBottom:4,fontWeight:500,display:"flex",flexDirection:"column",gap:2}}>
             <span>{filtered.length}건 검색됨</span>
